@@ -24,7 +24,7 @@ def get_project_root() -> str:
 
 def get_today_cache_path(project_root: str) -> str:
     return os.path.join(
-        project_root,
+        project_root, "data",
         f"fund_purchase_em_{today_str()}.csv"
     )
 
@@ -71,13 +71,14 @@ def fetch_or_load_fund_purchase() -> pd.DataFrame:
     cache_path = get_today_cache_path(project_root)
 
     # 🔥 关键修复：先清理「非今日」的历史 CSV
-    for fname in os.listdir(project_root):
+    cache_dir = os.path.join(project_root, "data")
+    for fname in os.listdir(cache_dir):
         if (
             fname.startswith("fund_purchase_em_")
             and fname.endswith(".csv")
             and today not in fname
         ):
-            os.remove(os.path.join(project_root, fname))
+            os.remove(os.path.join(cache_dir, fname))
             print(f"🗑 已删除历史缓存：{fname}")
 
     # 再判断今天的缓存是否存在

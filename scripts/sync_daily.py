@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 
 
 def write_last_update_time():
-    """在项目根目录写入最近一次成功同步时间（北京时间）"""
-    path = os.path.join(project_root, "last_sync_time.txt")
+    """在 data 目录写入最近一次成功同步时间（北京时间）"""
+    path = os.path.join(project_root, "data", "last_sync_time.txt")
     now_cn = datetime.now(ZoneInfo("Asia/Shanghai"))
     now_str = now_cn.strftime("%Y-%m-%d %H:%M")
 
@@ -43,7 +43,7 @@ def write_last_update_time():
 
 def write_sync_report(results: dict, duration_sec: float):
     """写入同步报告 JSON，供后续检查和通知使用"""
-    report_path = os.path.join(project_root, "last_sync_report.json")
+    report_path = os.path.join(project_root, "data", "last_sync_report.json")
     report = {
         "sync_time": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
         "duration_sec": round(duration_sec, 2),

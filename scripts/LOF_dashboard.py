@@ -22,9 +22,12 @@ def get_project_root() -> str:
     return os.path.dirname(current_dir)
 
 def get_cache_path(project_root: str) -> str:
-    for fname in os.listdir(project_root):
+    data_dir = os.path.join(project_root, "data")
+    if not os.path.exists(data_dir):
+        return None
+    for fname in os.listdir(data_dir):
         if fname.startswith("fund_purchase_em_") and fname.endswith(".csv"):
-            return os.path.join(project_root, fname)
+            return os.path.join(data_dir, fname)
 
 # ======================================================
 # 工具函数
@@ -61,7 +64,7 @@ def get_last_sync_time():
     读取最近一次 sync_daily.py 成功运行时间
     """
     project_root = get_project_root()
-    path = os.path.join(project_root, "last_sync_time.txt")
+    path = os.path.join(project_root, "data", "last_sync_time.txt")
 
     if not os.path.exists(path):
         return "暂无记录"

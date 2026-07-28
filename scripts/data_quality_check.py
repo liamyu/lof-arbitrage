@@ -232,7 +232,7 @@ class DataQualityChecker:
 
     def write_report(self, report: Dict[str, Any]):
         """写入检查报告"""
-        report_path = os.path.join(project_root, "data_quality_report.json")
+        report_path = os.path.join(project_root, "data", "data_quality_report.json")
         with open(report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
         logger.info(f"质量报告已写入: {report_path}")

@@ -102,9 +102,12 @@ def get_project_root() -> str:
 
 
 def get_cache_path(project_root: str) -> Optional[str]:
-    for fname in os.listdir(project_root):
+    data_dir = os.path.join(project_root, "data")
+    if not os.path.exists(data_dir):
+        return None
+    for fname in os.listdir(data_dir):
         if fname.startswith("fund_purchase_em_") and fname.endswith(".csv"):
-            return os.path.join(project_root, fname)
+            return os.path.join(data_dir, fname)
     return None
 
 

@@ -30,25 +30,39 @@
    - 在极空间文件管理器中，进入你想存放项目的目录（如 `/volume1/docker/`）
    - 使用 Git 克隆或手动上传项目文件
 
-2. **修改端口（可选）**
-   编辑 `docker-compose.yml`，将 `8080:80` 中的 `8080` 改为你想用的端口（如 `18080`）：
+2. **修改路径占位符（必须）**
+   编辑 `docker-compose.yml`，将所有 `<YOUR_USER_ID>` 替换为你的极空间实际用户 ID。
+
+   获取方式：在极空间 SSH 中执行以下命令查看你的真实路径：
+   ```bash
+   ls /tmp/zfsv3/nvme12/
+   ```
+   输出示例：`12345678901`，将这个值替换掉所有 `<YOUR_USER_ID>`。
+
+   如果你使用 VS Code 或 sed，可以一键替换：
+   ```bash
+   sed -i 's/<YOUR_USER_ID>/你的实际ID/g' docker-compose.yml
+   ```
+
+3. **修改端口（可选）**
+   编辑 `docker-compose.yml`，将 `18080:80` 中的 `18080` 改为你想用的端口：
    ```yaml
    ports:
      - "18080:80"
    ```
 
-3. **极空间 Docker 中创建 Compose 项目**
+4. **极空间 Docker 中创建 Compose 项目**
    - 打开极空间 Docker 应用
    - 点击「Compose」→「创建项目」
    - 项目名称填 `lof-arbitrage`
    - 选择项目路径为你存放代码的目录
    - 点击「创建并启动」
 
-4. **等待构建完成**
+5. **等待构建完成**
    - 首次构建需要下载 Python 基础镜像并安装依赖，约 3-5 分钟
    - 构建完成后，两个容器都会显示「运行中」
 
-5. **访问服务**
+6. **访问服务**
    - 浏览器访问 `http://<极空间IP>:8080`
    - 手机访问同理，确保手机和 NAS 在同一局域网
 
@@ -104,12 +118,14 @@ docker exec lof-api python scripts/sync_daily.py
 
 ## 目录说明
 
+极空间 Docker 的目录格式为 `/tmp/zfsv3/nvme12/<YOUR_USER_ID>/data/docker/lof/...`，其中 `<YOUR_USER_ID>` 是你的极空间用户 ID（通过 `ls /tmp/zfsv3/nvme12/` 查看）。
+
 | 本地路径 | 容器内路径 | 说明 |
 |---------|-----------|------|
-| `./data` | `/app/data` | LOF 历史行情数据（需持久化） |
-| `./logs` | `/app/logs` | 同步日志 |
-| `./h5` | `/usr/share/nginx/html` | H5 前端页面 |
-| `./nginx.conf` | `/etc/nginx/conf.d/default.conf` | Nginx 配置文件 |
+| `.../lof/data` | `/app/data` | LOF 历史行情数据（需持久化） |
+| `.../lof/logs` | `/app/logs` | 同步日志 |
+| `.../lof/h5` | `/usr/share/nginx/html` | H5 前端页面 |
+| `.../lof/nginx.conf` | `/etc/nginx/conf.d/default.conf` | Nginx 配置文件 |
 
 ## 常用维护命令
 

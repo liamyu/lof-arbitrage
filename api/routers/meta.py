@@ -32,7 +32,7 @@ def data_status() -> DataStatusResponse:
 
     # 读取最后同步时间
     sync_time = None
-    sync_path = os.path.join(project_root, "last_sync_time.txt")
+    sync_path = os.path.join(project_root, "data", "last_sync_time.txt")
     if os.path.exists(sync_path):
         with open(sync_path, "r", encoding="utf-8") as f:
             sync_time = f.read().strip()
@@ -41,7 +41,7 @@ def data_status() -> DataStatusResponse:
     overall_latest = None
     overall_lag_days = None
     status = "unknown"
-    report_path = os.path.join(project_root, "data_quality_report.json")
+    report_path = os.path.join(project_root, "data", "data_quality_report.json")
     if os.path.exists(report_path):
         try:
             with open(report_path, "r", encoding="utf-8") as f:

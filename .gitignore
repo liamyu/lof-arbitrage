@@ -9,12 +9,14 @@ venv/
 .vscode/
 .idea/
 
-# Data cache (动态生成的，不需要入库)
-fund_purchase_em_*.csv
+# Reports (每次运行动态生成，放在 data 目录下)
+data/data_quality_report.json
+data/last_sync_report.json
+data/last_sync_time.txt
+data/fund_purchase_em_*.csv
 
-# Reports (每次运行动态生成)
-data_quality_report.json
-last_sync_report.json
+# Logs
+logs/
 
 # macOS
 .DS_Store
