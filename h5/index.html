@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LOF 套利监测</title>
+  <script src="https://unpkg.com/vue@3.4.0/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/vue-router@4.2.0/dist/vue-router.global.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f6fa;
+      color: #333;
+      -webkit-font-smoothing: antialiased;
+    }
+    .app { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 60px; }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .badge { background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+    .main { flex: 1; padding: 12px; }
+    .tabbar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: white; border-top: 1px solid #e8e8e8;
+      display: flex; justify-content: space-around; padding: 6px 0; z-index: 100;
+    }
+    .tab { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #999; font-size: 12px; padding: 4px 24px; }
+    .tab .icon { font-size: 20px; margin-bottom: 2px; }
+    .tab.active { color: #667eea; }
+
+    .filter-bar { display: flex; gap: 12px; align-items: center; background: white; padding: 12px; border-radius: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-item { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+    .filter-item select { padding: 4px 8px; border-radius: 6px; border: 1px solid #ddd; }
+    .refresh-btn { margin-left: auto; background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; }
+    .refresh-btn:disabled { opacity: 0.6; }
+    .risk-tip { background: #fff3cd; color: #856404; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+    .data-time { font-size: 12px; color: #666; margin-bottom: 12px; text-align: center; }
+    .data-time .lag { color: #e74c3c; }
+    .loading, .error, .empty { text-align: center; padding: 40px; color: #999; }
+    .error { color: #e74c3c; }
+    .empty-sub { font-size: 12px; color: #bbb; margin-top: 8px; }
+
+    .fund-list { display: flex; flex-direction: column; gap: 10px; }
+    .fund-card { background: white; border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .code-name { display: flex; align-items: center; gap: 8px; }
+    .code { font-weight: 700; font-size: 16px; }
+    .name { font-size: 13px; color: #666; }
+    .score-badge { padding: 4px 10px; border-radius: 16px; font-size: 13px; font-weight: 600; color: white; }
+    .signal-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 10px; color: white; }
+    .excellent { background: #8B0000; }
+    .good { background: #CD2626; }
+    .medium { background: #FF4500; }
+    .low { background: #A0522D; }
+    .poor { background: #4F4F4F; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+    .metric { text-align: center; }
+    .metric .label { display: block; font-size: 11px; color: #999; margin-bottom: 2px; }
+    .metric .value { font-size: 13px; font-weight: 500; }
+    .metric .up { color: #e74c3c; }
+    .metric .down { color: #27ae60; }
+    .reasons { font-size: 12px; line-height: 1.6; }
+    .reasons.plus { color: #27ae60; }
+    .reasons.minus { color: #e74c3c; }
+    .block-tag { display: inline-block; background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 8px; }
+    .purchase-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 6px; }
+    .purchase-open { background: #d4edda; color: #155724; }
+    .purchase-limited { background: #fff3cd; color: #856404; }
+    .purchase-blocked { background: #f8d7da; color: #721c24; }
+    .filter-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .filter-group .filter-item { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+    .filter-group input[type="number"] { width: 60px; padding: 4px 6px; border-radius: 6px; border: 1px solid #ddd; font-size: 13px; }
+    .risk-banner { background: linear-gradient(90deg, #e74c3c, #c0392b); color: white; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 12px; text-align: center; }
+    .risk-banner strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .degraded-tip { background: #fff3cd; color: #856404; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+    .degraded-tip strong { color: #e67e22; }
+
+    .back-bar { margin-bottom: 12px; }
+    .back-btn { background: white; border: none; padding: 8px 14px; border-radius: 8px; font-size: 14px; color: #667eea; }
+    .detail-header { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .title-row h2 { font-size: 20px; }
+    .score-row { display: flex; align-items: center; gap: 12px; }
+    .big-score { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: white; }
+    .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+    .metric-box { background: white; border-radius: 12px; padding: 14px; text-align: center; }
+    .metric-box .metric-label { font-size: 12px; color: #999; margin-bottom: 6px; }
+    .metric-box .metric-value { font-size: 18px; font-weight: 600; }
+    .section { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    .section h3 { font-size: 15px; margin-bottom: 10px; color: #333; }
+    .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .info-row:last-child { border-bottom: none; }
+    .reason-list { font-size: 13px; line-height: 1.8; }
+    .reason-item { padding: 4px 0; }
+    .risk-box { background: #fff3cd; border-radius: 12px; padding: 14px; color: #856404; font-size: 13px; }
+    .risk-box h4 { margin-bottom: 6px; }
+
+    .status-card, .schedule-card, .disclaimer { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 16px; font-size: 14px; font-weight: 600; color: white; margin-bottom: 14px; }
+    .status-badge.healthy { background: #27ae60; }
+    .status-badge.degraded { background: #f39c12; }
+    .status-badge.failed { background: #e74c3c; }
+    .status-badge.unknown { background: #95a5a6; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .info-item { background: #f8f9fa; border-radius: 10px; padding: 12px; }
+    .info-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+    .info-value { font-size: 15px; font-weight: 600; }
+    .info-value.lag { color: #e74c3c; }
+    .schedule-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .schedule-item { background: #f0f4ff; color: #667eea; padding: 6px 12px; border-radius: 8px; font-size: 13px; }
+    .schedule-note { font-size: 12px; color: #999; margin-top: 10px; }
+    .disclaimer { font-size: 13px; color: #666; line-height: 1.8; }
+    .disclaimer h3 { font-size: 15px; color: #333; margin-bottom: 8px; }
+
+    /* 手机适配增强 */
+    @media (max-width: 380px) {
+      .header h1 { font-size: 16px; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .filter-group { gap: 8px; }
+      .filter-item { font-size: 12px; }
+      .filter-item select { font-size: 12px; padding: 3px 5px; }
+      .filter-item input[type="number"] { width: 50px; font-size: 12px; }
+      .refresh-btn { padding: 6px 12px; font-size: 13px; }
+      .code { font-size: 15px; }
+      .name { font-size: 12px; }
+      .score-badge { font-size: 12px; padding: 3px 8px; }
+      .metric .value { font-size: 12px; }
+      .big-score { width: 50px; height: 50px; font-size: 18px; }
+    }
+    @media (min-width: 768px) {
+      .app { max-width: 480px; margin: 0 auto; border-left: 1px solid #e8e8e8; border-right: 1px solid #e8e8e8; }
+    }
+    /* 触摸反馈 */
+    .fund-card, .tab, .back-btn, .refresh-btn {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .fund-card:active { transform: scale(0.98); transition: transform 0.1s; }
+    .tab:active { opacity: 0.7; }
+    .refresh-btn:active { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const { createApp, ref, watch, onMounted } = Vue;
+    const { createRouter, createWebHashHistory, useRoute, useRouter } = VueRouter;
+
+    const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:8000/api/v1'
+      : '/api/v1';
+
+    async function fetchJSON(path) {
+      const res = await fetch(`${API_BASE}${path}`);
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `HTTP ${res.status}`); }
+      return res.json();
+    }
+
+    const api = {
+      dataStatus: () => fetchJSON('/meta/data-status'),
+      opportunities: (p = {}) => { const qs = new URLSearchParams(p).toString(); return fetchJSON(`/opportunities?${qs}`); },
+      fundDetail: (code) => fetchJSON(`/funds/${code}`)
+    };
+
+    function scoreClass(score) {
+      if (score >= 80) return 'excellent';
+      if (score >= 65) return 'good';
+      if (score >= 50) return 'medium';
+      if (score >= 35) return 'low';
+      return 'poor';
+    }
+
+    const Opportunities = {
+      template: `
+        <div>
+          <div class="filter-bar">
+            <div class="filter-group">
+              <div class="filter-item"><label>最低评分</label>
+                <select v-model="minScore">
+                  <option :value="0">全部</option><option :value="35">≥35</option><option :value="50">≥50</option>
+                  <option :value="65">≥65</option><option :value="80">≥80</option>
+                </select>
+              </div>
+              <div class="filter-item"><label>仅可申购</label><input type="checkbox" v-model="purchaseOpen" /></div>
+              <div class="filter-item" v-if="purchaseOpen"><label>最大手续费</label><input type="number" v-model.number="maxFee" step="0.01" />%</div>
+              <div class="filter-item" v-if="purchaseOpen"><label>最小限额</label><input type="number" v-model.number="minLimit" step="100" />元</div>
+            </div>
+            <button class="refresh-btn" @click="load" :disabled="loading">{{ loading ? '加载中...' : '刷新' }}</button>
+          </div>
+          <div class="risk-banner"><strong>⚠️ 风险提示</strong>数据仅供学习交流，不构成投资建议。市场有风险，投资需谨慎。</div>
+          <div v-if="dataStatus" class="data-time">数据最新: {{ dataStatus.overall_latest || '未知' }}
+            <span v-if="dataStatus.overall_lag_days" class="lag">(滞后 {{ dataStatus.overall_lag_days }} 天)</span>
+          </div>
+          <div v-if="dataStatus && dataStatus.status === 'failed'" class="degraded-tip">
+            <strong>⚠️ 数据异常</strong> 当前数据可能存在滞后或缺失，建议检查数据同步状态。
+          </div>
+          <div v-if="loading" class="loading">加载中...</div>
+          <div v-else-if="error" class="error">{{ error }}</div>
+          <div v-else-if="funds.length === 0" class="empty">暂无符合条件的套利机会<div class="empty-sub">可尝试降低评分阈值或检查数据同步状态</div></div>
+          <div v-else class="fund-list">
+            <div v-for="f in funds" :key="f.code" class="fund-card" @click="goDetail(f.code)">
+              <div class="card-header">
+                <div class="code-name">
+                  <span class="code">{{ f.code }}</span>
+                  <span class="name">{{ f.purchase_info?.fund_name || '未知' }}</span>
+                  <span class="purchase-tag" :class="purchaseClass(f.purchase_info)">{{ purchaseText(f.purchase_info) }}</span>
+                </div>
+                <div class="score-badge" :class="scoreClass(f.score)">{{ f.score }}分</div>
+              </div>
+              <div class="signal-tag" :class="scoreClass(f.score)">{{ f.signal }}</div>
+              <div v-if="f._block_reason" class="block-tag">{{ f._block_reason }}</div>
+              <div class="metrics">
+                <div class="metric"><span class="label">溢价率</span><span class="value" :class="f.current_premium > 0 ? 'up' : 'down'">{{ f.current_premium != null ? f.current_premium.toFixed(2) + '%' : '-' }}</span></div>
+                <div class="metric"><span class="label">成交额</span><span class="value">{{ f.current_volume != null ? f.current_volume + '万' : '-' }}</span></div>
+                <div class="metric"><span class="label">申购状态</span><span class="value">{{ f.purchase_info?.purchase_status || '未知' }}</span></div>
+                <div class="metric"><span class="label">手续费</span><span class="value">{{ f.purchase_info?.fee_pct != null ? f.purchase_info.fee_pct + '%' : '-' }}</span></div>
+              </div>
+              <div v-if="f.reasons?.plus?.length" class="reasons plus"><div v-for="r in f.reasons.plus.slice(0,2)" :key="r">+ {{ r }}</div></div>
+              <div v-if="f.reasons?.minus?.length" class="reasons minus"><div v-for="r in f.reasons.minus.slice(0,2)" :key="r">- {{ r }}</div></div>
+            </div>
+          </div>
+        </div>`,
+      setup() {
+        const router = useRouter();
+        const funds = ref([]), loading = ref(false), error = ref('');
+        const minScore = ref(50), purchaseOpen = ref(false);
+        const maxFee = ref(0.5), minLimit = ref(1000);
+        const dataStatus = ref(null);
+        async function load() { loading.value = true; error.value = ''; try {
+          const params = { min_score: minScore.value, purchase_open: purchaseOpen.value, limit: 50 };
+          if (purchaseOpen.value) {
+            params.max_fee = maxFee.value;
+            params.min_purchase_limit = minLimit.value;
+          }
+          const [oppRes, statusRes] = await Promise.all([api.opportunities(params), api.dataStatus()]);
+          funds.value = oppRes.data || []; dataStatus.value = statusRes;
+        } catch (e) { error.value = e.message || '加载失败'; } finally { loading.value = false; }}
+        function goDetail(code) { router.push(`/fund/${code}`); }
+        watch([minScore, purchaseOpen], load);
+        watch([maxFee, minLimit], () => { if (purchaseOpen.value) load(); });
+        onMounted(load);
+        return { funds, loading, error, minScore, purchaseOpen, maxFee, minLimit, dataStatus, load, goDetail, scoreClass };
+      }
+    };
+
+    const FundDetail = {
+      template: `
+        <div>
+          <div class="back-bar"><button class="back-btn" @click="$router.back()">← 返回</button></div>
+          <div v-if="loading" class="loading">加载中...</div>
+          <div v-else-if="error" class="error">{{ error }}</div>
+          <div v-else-if="fund" class="detail">
+            <div class="detail-header">
+              <div class="title-row"><h2>{{ fund.code }}</h2><span class="name">{{ fund.purchase_info?.fund_name || '未知' }}</span></div>
+              <div class="score-row">
+                <div class="big-score" :class="scoreClass(fund.score)">{{ fund.score }}</div>
+                <div class="signal" :class="scoreClass(fund.score)">{{ fund.signal }}</div>
+              </div>
+            </div>
+            <div class="metric-grid">
+              <div class="metric-box"><div class="metric-label">当前溢价率</div><div class="metric-value" :class="fund.current_premium > 0 ? 'up' : 'down'">{{ fund.current_premium != null ? fund.current_premium.toFixed(2) + '%' : '-' }}</div></div>
+              <div class="metric-box"><div class="metric-label">最新成交额</div><div class="metric-value">{{ fund.current_volume != null ? fund.current_volume + '万' : '-' }}</div></div>
+              <div class="metric-box"><div class="metric-label">3日平均溢价</div><div class="metric-value">{{ fund.key_metrics?.premium_3d != null ? fund.key_metrics.premium_3d.toFixed(2) + '%' : '-' }}</div></div>
+              <div class="metric-box"><div class="metric-label">5日平均溢价</div><div class="metric-value">{{ fund.key_metrics?.premium_5d != null ? fund.key_metrics.premium_5d.toFixed(2) + '%' : '-' }}</div></div>
+            </div>
+            <div class="section">
+              <h3>申购信息</h3>
+              <div class="info-row">
+                <span>申购状态</span>
+                <span>
+                  {{ fund.purchase_info?.purchase_status || '未知' }}
+                  <span class="purchase-tag" :class="purchaseClass(fund.purchase_info)">{{ purchaseText(fund.purchase_info) }}</span>
+                </span>
+              </div>
+              <div class="info-row"><span>赎回状态</span><span>{{ fund.purchase_info?.redeem_status || '未知' }}</span></div>
+              <div class="info-row"><span>日限额</span><span>{{ fund.purchase_info?.purchase_limit != null ? fund.purchase_info.purchase_limit : '-' }}</span></div>
+              <div class="info-row"><span>手续费</span><span>{{ fund.purchase_info?.fee_pct != null ? fund.purchase_info.fee_pct + '%' : '-' }}</span></div>
+            </div>
+            <div class="section" v-if="fund.reasons">
+              <h3>评分理由</h3>
+              <div v-if="fund.reasons.plus?.length" class="reason-list plus"><div v-for="r in fund.reasons.plus" :key="r" class="reason-item">+ {{ r }}</div></div>
+              <div v-if="fund.reasons.minus?.length" class="reason-list minus"><div v-for="r in fund.reasons.minus" :key="r" class="reason-item">- {{ r }}</div></div>
+            </div>
+            <div class="section" v-if="fund.history_summary">
+              <h3>数据概览</h3>
+              <div class="info-row"><span>记录数</span><span>{{ fund.history_summary.record_count }} 条</span></div>
+              <div class="info-row"><span>数据范围</span><span>{{ fund.history_summary.date_range?.start }} ~ {{ fund.history_summary.date_range?.end }}</span></div>
+              <div class="info-row"><span>最新价格</span><span>{{ fund.history_summary.latest_price }}</span></div>
+            </div>
+            <div class="risk-box">
+              <h4>⚠️ 风险提示</h4>
+              <p>1. 估值非净值，盘中溢价可能快速变化；</p>
+              <p>2. 申购后到账前溢价可能消失，存在亏损风险；</p>
+              <p>3. 手续费和限额以实际交易为准，本平台数据仅供参考；</p>
+              <p>4. 历史表现不代表未来收益，投资需谨慎。</p>
+            </div>
+          </div>
+        </div>`,
+      setup() {
+        const route = useRoute();
+        const fund = ref(null), loading = ref(false), error = ref('');
+        async function load() { loading.value = true; error.value = ''; try { fund.value = await api.fundDetail(route.params.code); } catch (e) { error.value = e.message || '加载失败'; } finally { loading.value = false; }}
+        onMounted(load);
+        return { fund, loading, error, scoreClass };
+      }
+    };
+
+    const DataStatus = {
+      template: `
+        <div>
+          <div class="status-card">
+            <h2>数据同步状态</h2>
+            <div v-if="loading" class="loading">加载中...</div>
+            <div v-else-if="error" class="error">{{ error }}</div>
+            <div v-else-if="status" class="status-body">
+              <div class="status-badge" :class="status.status">{{ statusText(status.status) }}</div>
+              <div class="info-grid">
+                <div class="info-item"><div class="info-label">最后同步</div><div class="info-value">{{ status.sync_time || '未记录' }}</div></div>
+                <div class="info-item"><div class="info-label">最新数据</div><div class="info-value">{{ status.overall_latest || '未知' }}</div></div>
+                <div class="info-item"><div class="info-label">滞后天数</div><div class="info-value" :class="status.overall_lag_days > 2 ? 'lag' : ''">{{ status.overall_lag_days != null ? status.overall_lag_days + ' 天' : '未知' }}</div></div>
+                <div class="info-item"><div class="info-label">LOF 总数</div><div class="info-value">{{ status.total_lofs }} 只</div></div>
+              </div>
+              <div v-if="status.status === 'failed'" class="degraded-tip" style="margin-top: 12px;">
+                <strong>⚠️ 数据异常提示</strong><br>
+                当前数据同步存在异常，套利评分可能不准确。建议等待数据恢复后再做决策。
+              </div>
+            </div>
+          </div>
+          <div class="schedule-card">
+            <h3>盘中更新时点</h3>
+            <div class="schedule-list">
+              <div class="schedule-item">09:30 开盘</div><div class="schedule-item">10:30</div><div class="schedule-item">11:30</div>
+              <div class="schedule-item">13:30</div><div class="schedule-item">14:00</div><div class="schedule-item">14:15</div>
+              <div class="schedule-item">14:30</div><div class="schedule-item">14:45</div><div class="schedule-item">15:00 收盘</div>
+              <div class="schedule-item">21:00 晚间</div>
+            </div>
+            <p class="schedule-note">仅交易日自动执行，周末和节假日跳过</p>
+          </div>
+          <div class="disclaimer">
+            <h3>免责声明</h3>
+            <p>本工具仅供投资者学习交流，所选产品仅供参考，不构成任何投资建议。</p>
+            <p>市场有风险，投资需谨慎。数据来源：集思录、东方财富。</p>
+            <p>实时数据请见官网，本平台可能存在延迟。</p>
+            <p style="margin-top: 8px; color: #999; font-size: 12px;">
+              如数据长期未更新，请检查网络连接或联系管理员。
+            </p>
+          </div>
+        </div>`,
+      setup() {
+        const status = ref(null), loading = ref(false), error = ref('');
+        function statusText(s) { const map = { healthy: '健康', degraded: '降级', failed: '异常', unknown: '未知' }; return map[s] || s; }
+        async function load() { loading.value = true; error.value = ''; try { status.value = await api.dataStatus(); } catch (e) { error.value = e.message || '加载失败'; } finally { loading.value = false; }}
+        onMounted(load);
+        return { status, loading, error, statusText };
+      }
+    };
+
+    const routes = [
+      { path: '/', redirect: '/opportunities' },
+      { path: '/opportunities', component: Opportunities },
+      { path: '/fund/:code', component: FundDetail },
+      { path: '/status', component: DataStatus }
+    ];
+
+    const router = createRouter({ history: createWebHashHistory(), routes });
+
+    const App = {
+      template: `
+        <div class="app">
+          <header class="header"><h1>LOF 套利监测</h1><span class="badge">H5</span></header>
+          <main class="main"><router-view /></main>
+          <nav class="tabbar">
+            <router-link to="/opportunities" class="tab" active-class="active"><span class="icon">🔥</span><span class="label">机会</span></router-link>
+            <router-link to="/status" class="tab" active-class="active"><span class="icon">📊</span><span class="label">状态</span></router-link>
+          </nav>
+        </div>`
+    };
+
+    const app = createApp(App);
+     app.mixin({
+       methods: {
+         scoreClass,
+         purchaseClass(p) {
+           if (!p || !p.purchase_status) return 'purchase-blocked';
+           const s = p.purchase_status;
+           if (s.includes('开放申购')) return 'purchase-open';
+           if (s.includes('暂停') || s.includes('封闭') || s.includes('限购0')) return 'purchase-blocked';
+           if (s.includes('限购')) return 'purchase-limited';
+           return 'purchase-blocked';
+         },
+         purchaseText(p) {
+           if (!p || !p.purchase_status) return '未知';
+           const s = p.purchase_status;
+           if (s.includes('开放申购')) return '可申购';
+           if (s.includes('暂停') || s.includes('封闭') || s.includes('限购0')) return '不可申购';
+           if (s.includes('限购')) return '限额';
+           return '未知';
+         }
+       }
+     });
+     app.use(router).mount('#app');
+  </script>
+</body>
+</html>

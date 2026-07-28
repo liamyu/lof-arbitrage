@@ -9,3 +9,6 @@ numpy>=1.24.0
 openpyxl>=3.1.0
 akshare>=1.17.73
 pandas_market_calendars>=5.2.3
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
