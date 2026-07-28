@@ -11,11 +11,18 @@
 
     <nav class="tabbar">
       <router-link to="/opportunities" class="tab" active-class="active">
-        <span class="icon">🔥</span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 17l6-6 4 4 8-8"/>
+          <path d="M17 7h6v6"/>
+        </svg>
         <span class="label">机会</span>
       </router-link>
       <router-link to="/status" class="tab" active-class="active">
-        <span class="icon">📊</span>
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 20V10"/>
+          <path d="M12 20V4"/>
+          <path d="M18 20v-6"/>
+        </svg>
         <span class="label">状态</span>
       </router-link>
     </nav>
@@ -27,31 +34,37 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding-bottom: 60px;
+  padding-bottom: 64px;
+  background: var(--surface-muted);
 }
 
 .header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 16px;
+  background: var(--surface);
+  color: var(--foreground);
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: sticky;
   top: 0;
   z-index: 100;
+  border-bottom: 1px solid var(--border);
 }
 
 .header h1 {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: var(--tracking-tight);
 }
 
 .badge {
-  background: rgba(255,255,255,0.2);
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
 }
 
 .main {
@@ -64,11 +77,11 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: white;
-  border-top: 1px solid #e8e8e8;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-around;
-  padding: 6px 0;
+  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
   z-index: 100;
 }
 
@@ -77,17 +90,31 @@
   flex-direction: column;
   align-items: center;
   text-decoration: none;
-  color: #999;
-  font-size: 12px;
-  padding: 4px 24px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 6px 28px;
+  border-radius: var(--radius);
+  transition: color 0.16s ease, background-color 0.16s ease;
 }
 
 .tab .icon {
-  font-size: 20px;
-  margin-bottom: 2px;
+  width: 22px;
+  height: 22px;
+  margin-bottom: 3px;
 }
 
 .tab.active {
-  color: #667eea;
+  color: var(--primary);
+  background: var(--surface-muted);
+}
+
+@media (min-width: 768px) {
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
 }
 </style>

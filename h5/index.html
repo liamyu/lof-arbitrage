@@ -7,147 +7,502 @@
   <script src="https://unpkg.com/vue@3.4.0/dist/vue.global.js"></script>
   <script src="https://unpkg.com/vue-router@4.2.0/dist/vue-router.global.js"></script>
   <style>
+    :root {
+      --brand-50: #fafafa;
+      --brand-100: #f4f4f5;
+      --brand-200: #e4e4e7;
+      --brand-300: #d4d4d8;
+      --brand-400: #a1a1aa;
+      --brand-500: #71717a;
+      --brand-600: #52525b;
+      --brand-700: #3f3f46;
+      --brand-800: #27272a;
+      --brand-900: #18181b;
+      --background: #ffffff;
+      --surface: #ffffff;
+      --surface-muted: #f4f4f5;
+      --foreground: #18181b;
+      --text: #18181b;
+      --text-muted: #71717a;
+      --text-subtle: #a1a1aa;
+      --primary: #18181b;
+      --primary-foreground: #ffffff;
+      --secondary: #f4f4f5;
+      --border: #e4e4e7;
+      --input: #e4e4e7;
+      --success: #16a34a;
+      --success-subtle: #f0fdf4;
+      --success-text: #15803d;
+      --success-border: #bbf7d0;
+      --danger: #dc2626;
+      --danger-subtle: #fef2f2;
+      --danger-text: #b91c1c;
+      --danger-border: #fecaca;
+      --warning: #f59e0b;
+      --warning-subtle: #fffbeb;
+      --warning-text: #b45309;
+      --warning-border: #fde68a;
+      --radius: 0.75rem;
+      --radius-sm: 0.375rem;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: #f5f6fa;
-      color: #333;
+      font-family: var(--font-sans);
+      background: var(--surface-muted);
+      color: var(--foreground);
       -webkit-font-smoothing: antialiased;
     }
-    .app { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 60px; }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 64px;
+    }
+
     .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 16px;
+      background: var(--surface);
+      color: var(--foreground);
+      padding: 14px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       position: sticky;
       top: 0;
       z-index: 100;
+      border-bottom: 1px solid var(--border);
     }
-    .header h1 { font-size: 18px; font-weight: 600; }
-    .badge { background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 12px; }
-    .main { flex: 1; padding: 12px; }
-    .tabbar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: white; border-top: 1px solid #e8e8e8;
-      display: flex; justify-content: space-around; padding: 6px 0; z-index: 100;
-    }
-    .tab { display: flex; flex-direction: column; align-items: center; text-decoration: none; color: #999; font-size: 12px; padding: 4px 24px; }
-    .tab .icon { font-size: 20px; margin-bottom: 2px; }
-    .tab.active { color: #667eea; }
 
-    .filter-bar { display: flex; gap: 12px; align-items: center; background: white; padding: 12px; border-radius: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-    .filter-item { display: flex; align-items: center; gap: 6px; font-size: 14px; }
-    .filter-item select { padding: 4px 8px; border-radius: 6px; border: 1px solid #ddd; }
-    .refresh-btn { margin-left: auto; background: #667eea; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-size: 14px; }
-    .refresh-btn:disabled { opacity: 0.6; }
-    .risk-tip { background: #fff3cd; color: #856404; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
-    .data-time { font-size: 12px; color: #666; margin-bottom: 12px; text-align: center; }
-    .data-time .lag { color: #e74c3c; }
-    .loading, .error, .empty { text-align: center; padding: 40px; color: #999; }
-    .error { color: #e74c3c; }
-    .empty-sub { font-size: 12px; color: #bbb; margin-top: 8px; }
+    .header h1 { font-size: 17px; font-weight: 600; }
+
+    .badge {
+      background: var(--surface-muted);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+
+    .main { flex: 1; padding: 12px; }
+
+    .tabbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+      z-index: 100;
+    }
+
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-decoration: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 6px 28px;
+      border-radius: var(--radius);
+    }
+
+    .tab .icon { width: 22px; height: 22px; margin-bottom: 3px; }
+    .tab.active { color: var(--primary); background: var(--surface-muted); }
+
+    /* filter */
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      padding: 12px;
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .filter-group { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .filter-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+    .filter-item label { color: var(--text-muted); font-size: 12px; }
+    .filter-item select,
+    .filter-item input[type="number"] {
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--input);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .filter-item input[type="number"] { width: 64px; }
+    .filter-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); }
+
+    .refresh-btn {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border: none;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .refresh-btn:disabled { opacity: 0.5; }
+
+    .data-time {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .data-time .lag { color: var(--danger); margin-left: 4px; }
+
+    .risk-tip {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      border: 1px solid var(--warning-border);
+    }
+    .risk-icon { flex: none; line-height: 1.5; }
+
+    .risk-banner {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      border: 1px solid var(--warning-border);
+    }
+    .risk-banner strong { font-size: 13px; }
+
+    .degraded-tip {
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      margin-bottom: 12px;
+      border: 1px solid var(--warning-border);
+    }
+    .degraded-tip strong { font-weight: 600; }
+
+    .loading, .error, .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .error { color: var(--danger); }
+    .empty-sub { font-size: 12px; color: var(--text-subtle); margin-top: 8px; }
 
     .fund-list { display: flex; flex-direction: column; gap: 10px; }
-    .fund-card { background: white; border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .code-name { display: flex; align-items: center; gap: 8px; }
+
+    .fund-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .fund-card:active { background: var(--surface-muted); }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+    .code-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .code { font-weight: 700; font-size: 16px; }
-    .name { font-size: 13px; color: #666; }
-    .score-badge { padding: 4px 10px; border-radius: 16px; font-size: 13px; font-weight: 600; color: white; }
-    .signal-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 10px; color: white; }
-    .excellent { background: #8B0000; }
-    .good { background: #CD2626; }
-    .medium { background: #FF4500; }
-    .low { background: #A0522D; }
-    .poor { background: #4F4F4F; }
-    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
-    .metric { text-align: center; }
-    .metric .label { display: block; font-size: 11px; color: #999; margin-bottom: 2px; }
-    .metric .value { font-size: 13px; font-weight: 500; }
-    .metric .up { color: #e74c3c; }
-    .metric .down { color: #27ae60; }
-    .reasons { font-size: 12px; line-height: 1.6; }
-    .reasons.plus { color: #27ae60; }
-    .reasons.minus { color: #e74c3c; }
-    .block-tag { display: inline-block; background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-bottom: 8px; }
-    .purchase-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 6px; }
-    .purchase-open { background: #d4edda; color: #155724; }
-    .purchase-limited { background: #fff3cd; color: #856404; }
-    .purchase-blocked { background: #f8d7da; color: #721c24; }
-    .filter-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    .filter-group .filter-item { display: flex; align-items: center; gap: 4px; font-size: 13px; }
-    .filter-group input[type="number"] { width: 60px; padding: 4px 6px; border-radius: 6px; border: 1px solid #ddd; font-size: 13px; }
-    .risk-banner { background: linear-gradient(90deg, #e74c3c, #c0392b); color: white; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 12px; text-align: center; }
-    .risk-banner strong { display: block; font-size: 14px; margin-bottom: 4px; }
-    .degraded-tip { background: #fff3cd; color: #856404; padding: 10px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
-    .degraded-tip strong { color: #e67e22; }
+    .name { font-size: 13px; color: var(--text-muted); }
 
+    .score-badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      color: white;
+      flex: none;
+    }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .signal-tag {
+      display: inline-flex;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .purchase-tag {
+      display: inline-flex;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .purchase-tag.open { background: var(--success-subtle); color: var(--success-text); }
+    .purchase-tag.limited { background: var(--warning-subtle); color: var(--warning-text); }
+    .purchase-tag.blocked { background: var(--danger-subtle); color: var(--danger-text); }
+
+    .block-tag {
+      display: inline-flex;
+      background: var(--danger-subtle);
+      color: var(--danger-text);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    /* monochrome score scale */
+    .excellent { background: var(--brand-900); }
+    .good { background: var(--brand-700); }
+    .medium { background: var(--brand-500); }
+    .low { background: var(--brand-400); }
+    .poor { background: var(--brand-300); color: var(--brand-800); }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .metric {
+      background: var(--surface-muted);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      text-align: center;
+    }
+    .metric .label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .metric .value { font-size: 14px; font-weight: 600; color: var(--text); }
+    .up { color: var(--danger); }
+    .down { color: var(--success); }
+
+    .reasons { display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
+    .reason {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      line-height: 1.5;
+    }
+    .reason.plus { color: var(--success-text); }
+    .reason.minus { color: var(--danger-text); }
+    .reason-mark { font-weight: 700; flex: none; }
+
+    /* detail */
     .back-bar { margin-bottom: 12px; }
-    .back-btn { background: white; border: none; padding: 8px 14px; border-radius: 8px; font-size: 14px; color: #667eea; }
-    .detail-header { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-    .title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-    .title-row h2 { font-size: 20px; }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .back-btn:active { background: var(--surface-muted); }
+
+    .detail-header {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+    }
+    .title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .title-row h2 { font-size: 20px; font-weight: 700; }
+    .title-row .name { color: var(--text-muted); font-size: 14px; }
     .score-row { display: flex; align-items: center; gap: 12px; }
-    .big-score { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: white; }
-    .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
-    .metric-box { background: white; border-radius: 12px; padding: 14px; text-align: center; }
-    .metric-box .metric-label { font-size: 12px; color: #999; margin-bottom: 6px; }
-    .metric-box .metric-value { font-size: 18px; font-weight: 600; }
-    .section { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-    .section h3 { font-size: 15px; margin-bottom: 10px; color: #333; }
-    .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .big-score {
+      width: 58px;
+      height: 58px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+      color: white;
+    }
+    .signal {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .metric-box {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .metric-box .metric-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+    .metric-box .metric-value { font-size: 18px; font-weight: 700; color: var(--text); }
+
+    .section {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+    }
+    .section h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      color: var(--text-muted);
+      gap: 8px;
+    }
     .info-row:last-child { border-bottom: none; }
-    .reason-list { font-size: 13px; line-height: 1.8; }
-    .reason-item { padding: 4px 0; }
-    .risk-box { background: #fff3cd; border-radius: 12px; padding: 14px; color: #856404; font-size: 13px; }
-    .risk-box h4 { margin-bottom: 6px; }
+    .info-row span:last-child { color: var(--text); font-weight: 500; text-align: right; }
 
-    .status-card, .schedule-card, .disclaimer { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-    .status-badge { display: inline-block; padding: 6px 16px; border-radius: 16px; font-size: 14px; font-weight: 600; color: white; margin-bottom: 14px; }
-    .status-badge.healthy { background: #27ae60; }
-    .status-badge.degraded { background: #f39c12; }
-    .status-badge.failed { background: #e74c3c; }
-    .status-badge.unknown { background: #95a5a6; }
-    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .info-item { background: #f8f9fa; border-radius: 10px; padding: 12px; }
-    .info-label { font-size: 12px; color: #999; margin-bottom: 4px; }
-    .info-value { font-size: 15px; font-weight: 600; }
-    .info-value.lag { color: #e74c3c; }
+    .reason-list { display: flex; flex-direction: column; gap: 6px; }
+    .reason-item {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .reason-item.plus { color: var(--success-text); }
+    .reason-item.minus { color: var(--danger-text); }
+
+    .risk-box {
+      background: var(--warning-subtle);
+      border-radius: var(--radius);
+      padding: 14px;
+      color: var(--warning-text);
+      font-size: 13px;
+      line-height: 1.6;
+      border: 1px solid var(--warning-border);
+    }
+    .risk-box h4 { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 14px; }
+
+    /* status */
+    .status-card, .schedule-card, .disclaimer {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+    }
+    .status-card h2, .schedule-card h3, .disclaimer h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+    .schedule-card h3, .disclaimer h3 { margin-bottom: 12px; }
+
+    .status-badge {
+      display: inline-flex;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 14px;
+    }
+    .status-badge.healthy { background: var(--success); }
+    .status-badge.degraded { background: var(--warning); }
+    .status-badge.failed { background: var(--danger); }
+    .status-badge.unknown { background: var(--text-subtle); }
+
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .info-item {
+      background: var(--surface-muted);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      border: 1px solid var(--border);
+    }
+    .info-label { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
+    .info-value { font-size: 15px; font-weight: 600; color: var(--text); }
+    .info-value.lag { color: var(--danger); }
+
     .schedule-list { display: flex; flex-wrap: wrap; gap: 8px; }
-    .schedule-item { background: #f0f4ff; color: #667eea; padding: 6px 12px; border-radius: 8px; font-size: 13px; }
-    .schedule-note { font-size: 12px; color: #999; margin-top: 10px; }
-    .disclaimer { font-size: 13px; color: #666; line-height: 1.8; }
-    .disclaimer h3 { font-size: 15px; color: #333; margin-bottom: 8px; }
+    .schedule-item {
+      background: var(--surface-muted);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+    }
+    .schedule-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
 
-    /* 手机适配增强 */
+    .disclaimer { font-size: 13px; color: var(--text-muted); line-height: 1.8; }
+
+    /* responsive */
     @media (max-width: 380px) {
-      .header h1 { font-size: 16px; }
-      .metrics { grid-template-columns: repeat(2, 1fr); }
-      .filter-group { gap: 8px; }
-      .filter-item { font-size: 12px; }
-      .filter-item select { font-size: 12px; padding: 3px 5px; }
-      .filter-item input[type="number"] { width: 50px; font-size: 12px; }
-      .refresh-btn { padding: 6px 12px; font-size: 13px; }
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .filter-group { justify-content: space-between; }
+      .refresh-btn { width: 100%; }
       .code { font-size: 15px; }
       .name { font-size: 12px; }
       .score-badge { font-size: 12px; padding: 3px 8px; }
-      .metric .value { font-size: 12px; }
+      .metric .value { font-size: 13px; }
       .big-score { width: 50px; height: 50px; font-size: 18px; }
     }
+
     @media (min-width: 768px) {
-      .app { max-width: 480px; margin: 0 auto; border-left: 1px solid #e8e8e8; border-right: 1px solid #e8e8e8; }
+      .app { max-width: 480px; margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
     }
-    /* 触摸反馈 */
+
     .fund-card, .tab, .back-btn, .refresh-btn {
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
-    .fund-card:active { transform: scale(0.98); transition: transform 0.1s; }
-    .tab:active { opacity: 0.7; }
-    .refresh-btn:active { opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -197,10 +552,10 @@
             </div>
             <button class="refresh-btn" @click="load" :disabled="loading">{{ loading ? '加载中...' : '刷新' }}</button>
           </div>
-          <div class="risk-banner"><strong>⚠️ 风险提示</strong>数据仅供学习交流，不构成投资建议。市场有风险，投资需谨慎。</div>
-          <div v-if="dataStatus" class="data-time">数据最新: {{ dataStatus.overall_latest || '未知' }}
-            <span v-if="dataStatus.overall_lag_days" class="lag">(滞后 {{ dataStatus.overall_lag_days }} 天)</span>
+          <div v-if="dataStatus" class="data-time">数据最新：{{ dataStatus.overall_latest || '未知' }}
+            <span v-if="dataStatus.overall_lag_days" class="lag">滞后 {{ dataStatus.overall_lag_days }} 天</span>
           </div>
+          <div class="risk-banner"><strong>⚠️ 风险提示</strong>数据仅供学习交流，不构成投资建议。市场有风险，投资需谨慎。</div>
           <div v-if="dataStatus && dataStatus.status === 'failed'" class="degraded-tip">
             <strong>⚠️ 数据异常</strong> 当前数据可能存在滞后或缺失，建议检查数据同步状态。
           </div>
@@ -213,11 +568,13 @@
                 <div class="code-name">
                   <span class="code">{{ f.code }}</span>
                   <span class="name">{{ f.purchase_info?.fund_name || '未知' }}</span>
-                  <span class="purchase-tag" :class="purchaseClass(f.purchase_info)">{{ purchaseText(f.purchase_info) }}</span>
                 </div>
-                <div class="score-badge" :class="scoreClass(f.score)">{{ f.score }}分</div>
+                <div class="score-badge" :class="scoreClass(f.score)">{{ f.score }}</div>
               </div>
-              <div class="signal-tag" :class="scoreClass(f.score)">{{ f.signal }}</div>
+              <div class="card-meta">
+                <span class="signal-tag" :class="scoreClass(f.score)">{{ f.signal }}</span>
+                <span v-if="f.purchase_info?.purchase_status" class="purchase-tag" :class="purchaseClass(f.purchase_info)">{{ purchaseText(f.purchase_info) }}</span>
+              </div>
               <div v-if="f._block_reason" class="block-tag">{{ f._block_reason }}</div>
               <div class="metrics">
                 <div class="metric"><span class="label">溢价率</span><span class="value" :class="f.current_premium > 0 ? 'up' : 'down'">{{ f.current_premium != null ? f.current_premium.toFixed(2) + '%' : '-' }}</span></div>
@@ -225,8 +582,10 @@
                 <div class="metric"><span class="label">申购状态</span><span class="value">{{ f.purchase_info?.purchase_status || '未知' }}</span></div>
                 <div class="metric"><span class="label">手续费</span><span class="value">{{ f.purchase_info?.fee_pct != null ? f.purchase_info.fee_pct + '%' : '-' }}</span></div>
               </div>
-              <div v-if="f.reasons?.plus?.length" class="reasons plus"><div v-for="r in f.reasons.plus.slice(0,2)" :key="r">+ {{ r }}</div></div>
-              <div v-if="f.reasons?.minus?.length" class="reasons minus"><div v-for="r in f.reasons.minus.slice(0,2)" :key="r">- {{ r }}</div></div>
+              <div v-if="f.reasons?.plus?.length || f.reasons?.minus?.length" class="reasons">
+                <div v-for="r in f.reasons.plus.slice(0,2)" :key="'+' + r" class="reason plus"><span class="reason-mark">+</span>{{ r }}</div>
+                <div v-for="r in f.reasons.minus.slice(0,2)" :key="'-' + r" class="reason minus"><span class="reason-mark">−</span>{{ r }}</div>
+              </div>
             </div>
           </div>
         </div>`,
@@ -238,10 +597,7 @@
         const dataStatus = ref(null);
         async function load() { loading.value = true; error.value = ''; try {
           const params = { min_score: minScore.value, purchase_open: purchaseOpen.value, limit: 50 };
-          if (purchaseOpen.value) {
-            params.max_fee = maxFee.value;
-            params.min_purchase_limit = minLimit.value;
-          }
+          if (purchaseOpen.value) { params.max_fee = maxFee.value; params.min_purchase_limit = minLimit.value; }
           const [oppRes, statusRes] = await Promise.all([api.opportunities(params), api.dataStatus()]);
           funds.value = oppRes.data || []; dataStatus.value = statusRes;
         } catch (e) { error.value = e.message || '加载失败'; } finally { loading.value = false; }}
@@ -270,8 +626,8 @@
             <div class="metric-grid">
               <div class="metric-box"><div class="metric-label">当前溢价率</div><div class="metric-value" :class="fund.current_premium > 0 ? 'up' : 'down'">{{ fund.current_premium != null ? fund.current_premium.toFixed(2) + '%' : '-' }}</div></div>
               <div class="metric-box"><div class="metric-label">最新成交额</div><div class="metric-value">{{ fund.current_volume != null ? fund.current_volume + '万' : '-' }}</div></div>
-              <div class="metric-box"><div class="metric-label">3日平均溢价</div><div class="metric-value">{{ fund.key_metrics?.premium_3d != null ? fund.key_metrics.premium_3d.toFixed(2) + '%' : '-' }}</div></div>
-              <div class="metric-box"><div class="metric-label">5日平均溢价</div><div class="metric-value">{{ fund.key_metrics?.premium_5d != null ? fund.key_metrics.premium_5d.toFixed(2) + '%' : '-' }}</div></div>
+              <div class="metric-box"><div class="metric-label">3日平均溢价</div><div class="metric-value" :class="fund.key_metrics?.premium_3d > 0 ? 'up' : 'down'">{{ fund.key_metrics?.premium_3d != null ? fund.key_metrics.premium_3d.toFixed(2) + '%' : '-' }}</div></div>
+              <div class="metric-box"><div class="metric-label">5日平均溢价</div><div class="metric-value" :class="fund.key_metrics?.premium_5d > 0 ? 'up' : 'down'">{{ fund.key_metrics?.premium_5d != null ? fund.key_metrics.premium_5d.toFixed(2) + '%' : '-' }}</div></div>
             </div>
             <div class="section">
               <h3>申购信息</h3>
@@ -279,7 +635,7 @@
                 <span>申购状态</span>
                 <span>
                   {{ fund.purchase_info?.purchase_status || '未知' }}
-                  <span class="purchase-tag" :class="purchaseClass(fund.purchase_info)">{{ purchaseText(fund.purchase_info) }}</span>
+                  <span v-if="fund.purchase_info?.purchase_status" class="purchase-tag" :class="purchaseClass(fund.purchase_info)">{{ purchaseText(fund.purchase_info) }}</span>
                 </span>
               </div>
               <div class="info-row"><span>赎回状态</span><span>{{ fund.purchase_info?.redeem_status || '未知' }}</span></div>
@@ -288,8 +644,12 @@
             </div>
             <div class="section" v-if="fund.reasons">
               <h3>评分理由</h3>
-              <div v-if="fund.reasons.plus?.length" class="reason-list plus"><div v-for="r in fund.reasons.plus" :key="r" class="reason-item">+ {{ r }}</div></div>
-              <div v-if="fund.reasons.minus?.length" class="reason-list minus"><div v-for="r in fund.reasons.minus" :key="r" class="reason-item">- {{ r }}</div></div>
+              <div v-if="fund.reasons.plus?.length" class="reason-list">
+                <div v-for="r in fund.reasons.plus" :key="r" class="reason-item plus"><span class="reason-mark">+</span>{{ r }}</div>
+              </div>
+              <div v-if="fund.reasons.minus?.length" class="reason-list">
+                <div v-for="r in fund.reasons.minus" :key="r" class="reason-item minus"><span class="reason-mark">−</span>{{ r }}</div>
+              </div>
             </div>
             <div class="section" v-if="fund.history_summary">
               <h3>数据概览</h3>
@@ -298,7 +658,7 @@
               <div class="info-row"><span>最新价格</span><span>{{ fund.history_summary.latest_price }}</span></div>
             </div>
             <div class="risk-box">
-              <h4>⚠️ 风险提示</h4>
+              <h4><span>⚠️</span>风险提示</h4>
               <p>1. 估值非净值，盘中溢价可能快速变化；</p>
               <p>2. 申购后到账前溢价可能消失，存在亏损风险；</p>
               <p>3. 手续费和限额以实际交易为准，本平台数据仅供参考；</p>
@@ -331,8 +691,7 @@
                 <div class="info-item"><div class="info-label">LOF 总数</div><div class="info-value">{{ status.total_lofs }} 只</div></div>
               </div>
               <div v-if="status.status === 'failed'" class="degraded-tip" style="margin-top: 12px;">
-                <strong>⚠️ 数据异常提示</strong><br>
-                当前数据同步存在异常，套利评分可能不准确。建议等待数据恢复后再做决策。
+                <strong>⚠️ 数据异常提示</strong><br>当前数据同步存在异常，套利评分可能不准确。建议等待数据恢复后再做决策。
               </div>
             </div>
           </div>
@@ -351,9 +710,7 @@
             <p>本工具仅供投资者学习交流，所选产品仅供参考，不构成任何投资建议。</p>
             <p>市场有风险，投资需谨慎。数据来源：集思录、东方财富。</p>
             <p>实时数据请见官网，本平台可能存在延迟。</p>
-            <p style="margin-top: 8px; color: #999; font-size: 12px;">
-              如数据长期未更新，请检查网络连接或联系管理员。
-            </p>
+            <p style="margin-top: 8px; color: var(--text-subtle); font-size: 12px;">如数据长期未更新，请检查网络连接或联系管理员。</p>
           </div>
         </div>`,
       setup() {
@@ -377,11 +734,11 @@
     const App = {
       template: `
         <div class="app">
-          <header class="header"><h1>LOF 套利监测</h1><span class="badge">H5</span></header>
+          <header class="header"><h1>LOF 套利监测</h1></header>
           <main class="main"><router-view /></main>
           <nav class="tabbar">
-            <router-link to="/opportunities" class="tab" active-class="active"><span class="icon">🔥</span><span class="label">机会</span></router-link>
-            <router-link to="/status" class="tab" active-class="active"><span class="icon">📊</span><span class="label">状态</span></router-link>
+            <router-link to="/opportunities" class="tab" active-class="active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h6v6"/></svg><span class="label">机会</span></router-link>
+            <router-link to="/status" class="tab" active-class="active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 20V10"/><path d="M12 20V4"/><path d="M18 20v-6"/></svg><span class="label">状态</span></router-link>
           </nav>
         </div>`
     };
@@ -391,12 +748,12 @@
        methods: {
          scoreClass,
          purchaseClass(p) {
-           if (!p || !p.purchase_status) return 'purchase-blocked';
+           if (!p || !p.purchase_status) return 'blocked';
            const s = p.purchase_status;
-           if (s.includes('开放申购')) return 'purchase-open';
-           if (s.includes('暂停') || s.includes('封闭') || s.includes('限购0')) return 'purchase-blocked';
-           if (s.includes('限购')) return 'purchase-limited';
-           return 'purchase-blocked';
+           if (s.includes('开放申购')) return 'open';
+           if (s.includes('暂停') || s.includes('封闭') || s.includes('限购0')) return 'blocked';
+           if (s.includes('限购')) return 'limited';
+           return 'blocked';
          },
          purchaseText(p) {
            if (!p || !p.purchase_status) return '未知';

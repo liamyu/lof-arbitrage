@@ -1,7 +1,10 @@
 <template>
   <div>
     <div class="back-bar">
-      <button class="back-btn" @click="$router.back()">← 返回</button>
+      <button class="back-btn" @click="$router.back()">
+        <span class="back-icon">←</span>
+        <span>返回</span>
+      </button>
     </div>
 
     <div v-if="loading" class="loading">加载中...</div>
@@ -33,11 +36,15 @@
         </div>
         <div class="metric-box">
           <div class="metric-label">3日平均溢价</div>
-          <div class="metric-value">{{ fund.key_metrics?.premium_3d != null ? fund.key_metrics.premium_3d.toFixed(2) + '%' : '-' }}</div>
+          <div class="metric-value" :class="fund.key_metrics?.premium_3d > 0 ? 'up' : 'down'">
+            {{ fund.key_metrics?.premium_3d != null ? fund.key_metrics.premium_3d.toFixed(2) + '%' : '-' }}
+          </div>
         </div>
         <div class="metric-box">
           <div class="metric-label">5日平均溢价</div>
-          <div class="metric-value">{{ fund.key_metrics?.premium_5d != null ? fund.key_metrics.premium_5d.toFixed(2) + '%' : '-' }}</div>
+          <div class="metric-value" :class="fund.key_metrics?.premium_5d > 0 ? 'up' : 'down'">
+            {{ fund.key_metrics?.premium_5d != null ? fund.key_metrics.premium_5d.toFixed(2) + '%' : '-' }}
+          </div>
         </div>
       </div>
 
@@ -46,7 +53,12 @@
         <h3>申购信息</h3>
         <div class="info-row">
           <span>申购状态</span>
-          <span>{{ fund.purchase_info?.purchase_status || '未知' }}</span>
+          <span class="info-value">
+            {{ fund.purchase_info?.purchase_status || '未知' }}
+            <span v-if="fund.purchase_info?.purchase_status" class="purchase-tag" :class="purchaseClass(fund.purchase_info)">
+              {{ purchaseText(fund.purchase_info) }}
+            </span>
+          </span>
         </div>
         <div class="info-row">
           <span>赎回状态</span>
@@ -65,11 +77,15 @@
       <!-- 评分理由 -->
       <div class="section" v-if="fund.reasons">
         <h3>评分理由</h3>
-        <div v-if="fund.reasons.plus?.length" class="reason-list plus">
-          <div v-for="r in fund.reasons.plus" :key="r" class="reason-item">+ {{ r }}</div>
+        <div v-if="fund.reasons.plus?.length" class="reason-list">
+          <div v-for="r in fund.reasons.plus" :key="r" class="reason-item plus">
+            <span class="reason-mark">+</span>{{ r }}
+          </div>
         </div>
-        <div v-if="fund.reasons.minus?.length" class="reason-list minus">
-          <div v-for="r in fund.reasons.minus" :key="r" class="reason-item">- {{ r }}</div>
+        <div v-if="fund.reasons.minus?.length" class="reason-list">
+          <div v-for="r in fund.reasons.minus" :key="r" class="reason-item minus">
+            <span class="reason-mark">−</span>{{ r }}
+          </div>
         </div>
       </div>
 
@@ -92,7 +108,7 @@
 
       <!-- 风险提示 -->
       <div class="risk-box">
-        <h4>⚠️ 风险提示</h4>
+        <h4><span class="risk-icon">⚠️</span>风险提示</h4>
         <p>估值非净值，盘中溢价可能快速变化；申购后到账前溢价可能消失；手续费和限额以实际交易为准。</p>
       </div>
     </div>
@@ -117,6 +133,24 @@ function scoreClass(score) {
   return 'poor'
 }
 
+function purchaseClass(p) {
+  if (!p || !p.purchase_status) return 'blocked'
+  const s = p.purchase_status
+  if (s.includes('开放申购')) return 'open'
+  if (s.includes('暂停') || s.includes('封闭') || s.includes('限购0')) return 'blocked'
+  if (s.includes('限购')) return 'limited'
+  return 'blocked'
+}
+
+function purchaseText(p) {
+  if (!p || !p.purchase_status) return '未知'
+  const s = p.purchase_status
+  if (s.includes('开放申购')) return '可申购'
+  if (s.includes('暂停') || s.includes('封闭') || s.includes('限购0')) return '不可申购'
+  if (s.includes('限购')) return '限额'
+  return '未知'
+}
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -137,42 +171,66 @@ onMounted(load)
 .back-bar {
   margin-bottom: 12px;
 }
+
 .back-btn {
-  background: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #667eea;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 0.16s ease;
 }
 
-.loading, .error {
-  text-align: center;
-  padding: 40px;
-  color: #999;
+.back-btn:active {
+  background: var(--surface-muted);
 }
-.error { color: #e74c3c; }
+
+.back-icon {
+  color: var(--text-muted);
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.error {
+  color: var(--danger);
+}
 
 .detail-header {
-  background: white;
-  border-radius: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 12px;
+  border: 1px solid var(--border);
 }
 
 .title-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 
 .title-row h2 {
   font-size: 20px;
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
 }
 
 .title-row .name {
-  color: #666;
+  color: var(--text-muted);
   font-size: 14px;
 }
 
@@ -183,9 +241,9 @@ onMounted(load)
 }
 
 .big-score {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,7 +254,7 @@ onMounted(load)
 
 .signal {
   padding: 6px 14px;
-  border-radius: 16px;
+  border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
   color: white;
@@ -210,78 +268,145 @@ onMounted(load)
 }
 
 .metric-box {
-  background: white;
-  border-radius: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
   padding: 14px;
   text-align: center;
+  border: 1px solid var(--border);
 }
 
 .metric-label {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
   margin-bottom: 6px;
 }
 
 .metric-value {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text);
 }
 
-.metric-value.up { color: #e74c3c; }
-.metric-value.down { color: #27ae60; }
-
 .section {
-  background: white;
-  border-radius: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
   padding: 14px;
   margin-bottom: 12px;
+  border: 1px solid var(--border);
 }
 
 .section h3 {
   font-size: 15px;
-  margin-bottom: 10px;
-  color: #333;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text);
 }
 
 .info-row {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
   font-size: 14px;
+  color: var(--text-muted);
+  gap: 8px;
 }
 
 .info-row:last-child {
   border-bottom: none;
 }
 
-.reason-list {
-  font-size: 13px;
-  line-height: 1.8;
+.info-row span:last-child {
+  color: var(--text);
+  font-weight: 500;
+  text-align: right;
 }
 
-.reason-list.plus { color: #27ae60; }
-.reason-list.minus { color: #e74c3c; }
+.info-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.purchase-tag {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.purchase-tag.open {
+  background: var(--success-subtle);
+  color: var(--success-text);
+}
+
+.purchase-tag.limited {
+  background: var(--warning-subtle);
+  color: var(--warning-text);
+}
+
+.purchase-tag.blocked {
+  background: var(--danger-subtle);
+  color: var(--danger-text);
+}
+
+.reason-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
 .reason-item {
-  padding: 4px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.reason-item.plus {
+  color: var(--success-text);
+}
+
+.reason-item.minus {
+  color: var(--danger-text);
+}
+
+.reason-mark {
+  font-weight: 700;
+  flex: none;
 }
 
 .risk-box {
-  background: #fff3cd;
-  border-radius: 12px;
+  background: var(--warning-subtle);
+  border-radius: var(--radius);
   padding: 14px;
-  color: #856404;
+  color: var(--warning-text);
   font-size: 13px;
+  line-height: 1.6;
+  border: 1px solid var(--warning-border);
 }
 
 .risk-box h4 {
-  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.excellent { background: #8B0000; }
-.good { background: #CD2626; }
-.medium { background: #FF4500; }
-.low { background: #A0522D; }
-.poor { background: #4F4F4F; }
+.risk-icon {
+  line-height: 1;
+}
+
+/* score scale — monochrome depth */
+.excellent { background: var(--brand-900); }
+.good { background: var(--brand-700); }
+.medium { background: var(--brand-500); }
+.low { background: var(--brand-400); }
+.poor { background: var(--brand-300); color: var(--brand-800); }
 </style>

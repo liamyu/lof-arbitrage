@@ -90,76 +90,100 @@ onMounted(load)
 
 <style scoped>
 .status-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 12px;
+  border: 1px solid var(--border);
 }
 
 .status-card h2 {
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 600;
   margin-bottom: 14px;
+  color: var(--text);
 }
 
-.loading, .error {
+.loading,
+.error {
   text-align: center;
-  padding: 20px;
-  color: #999;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 14px;
 }
-.error { color: #e74c3c; }
+
+.error {
+  color: var(--danger);
+}
 
 .status-badge {
-  display: inline-block;
-  padding: 6px 16px;
-  border-radius: 16px;
-  font-size: 14px;
-  font-weight: 600;
+  display: inline-flex;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
   color: white;
   margin-bottom: 14px;
 }
 
-.status-badge.healthy { background: #27ae60; }
-.status-badge.degraded { background: #f39c12; }
-.status-badge.failed { background: #e74c3c; }
-.status-badge.unknown { background: #95a5a6; }
+.status-badge.healthy {
+  background: var(--success);
+}
+
+.status-badge.degraded {
+  background: var(--warning);
+}
+
+.status-badge.failed {
+  background: var(--danger);
+}
+
+.status-badge.unknown {
+  background: var(--text-subtle);
+}
 
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 10px;
 }
 
 .info-item {
-  background: #f8f9fa;
-  border-radius: 10px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
   padding: 12px;
+  border: 1px solid var(--border);
 }
 
 .info-label {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
 }
 
 .info-value {
   font-size: 15px;
   font-weight: 600;
+  color: var(--text);
 }
 
 .info-value.lag {
-  color: #e74c3c;
+  color: var(--danger);
 }
 
 .schedule-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 12px;
+  border: 1px solid var(--border);
 }
 
 .schedule-card h3 {
   font-size: 15px;
+  font-weight: 600;
   margin-bottom: 12px;
+  color: var(--text);
 }
 
 .schedule-list {
@@ -169,31 +193,35 @@ onMounted(load)
 }
 
 .schedule-item {
-  background: #f0f4ff;
-  color: #667eea;
+  background: var(--surface-muted);
+  color: var(--text);
   padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
 }
 
 .schedule-note {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
   margin-top: 10px;
 }
 
 .disclaimer {
-  background: white;
-  border-radius: 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
   padding: 16px;
   font-size: 13px;
-  color: #666;
+  color: var(--text-muted);
   line-height: 1.8;
+  border: 1px solid var(--border);
 }
 
 .disclaimer h3 {
   font-size: 15px;
-  color: #333;
+  font-weight: 600;
+  color: var(--text);
   margin-bottom: 8px;
 }
 </style>
