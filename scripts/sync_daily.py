@@ -138,7 +138,7 @@ def main():
     duration = (datetime.now(ZoneInfo("Asia/Shanghai")) - start_time).total_seconds()
     write_sync_report(results, duration)
 
-    # 如果有失败，以非零退出码退出（但 GitHub Actions 通过 continue-on-error 处理）
+    # 如果有失败，以非零退出码退出
     if results['failed']:
         failed_pct = len(results['failed']) / total * 100
         logger.warning(f"失败比例: {failed_pct:.1f}%")

@@ -1,7 +1,7 @@
 """
 数据质量检查脚本
 检查 LOF 数据的新鲜度、完整性、异常值
-输出检查报告，供 GitHub Actions 和后续流程使用
+输出检查报告，供 API 和后续流程使用
 """
 import sys
 import os

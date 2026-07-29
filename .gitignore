@@ -9,11 +9,8 @@ venv/
 .vscode/
 .idea/
 
-# Reports (每次运行动态生成，放在 data 目录下)
-data/data_quality_report.json
-data/last_sync_report.json
-data/last_sync_time.txt
-data/fund_purchase_em_*.csv
+# Data (由容器定时任务动态生成，不提交到仓库)
+data/
 
 # Logs
 logs/

@@ -4,12 +4,12 @@
 
 ## 项目简介
 
-LOF（上市开放式基金）溢价套利监测系统。从集思录抓取全市场 LOF 的溢价率行情，从东方财富抓取基金申购状态，经评分引擎计算套利机会得分，通过 FastAPI REST API 和 Vue 3 移动端 H5 页面对外展示。数据同步由 GitHub Actions 在交易日盘中多个时点自动执行。
+LOF（上市开放式基金）溢价套利监测系统。从集思录抓取全市场 LOF 的溢价率行情，从东方财富抓取基金申购状态，经评分引擎计算套利机会得分，通过 FastAPI REST API 和 Vue 3 移动端 H5 页面对外展示。数据同步由容器内定时任务在交易日盘中自动执行。
 
 - **数据源**：集思录 `jisilu.cn`（LOF 溢价率行情）、东方财富 `akshare`（基金申购赎回状态）
 - **后端**：FastAPI + Pandas + NumPy
 - **前端**：Vue 3（单文件 CDN 版 `h5/index.html` + Vite SFC 版 `h5/src/`）
-- **定时任务**：GitHub Actions（交易日盘中 10 个时点同步 + 每日申购信息更新）
+- **定时任务**：Docker 容器内 cron 定时执行 `sync_daily.py`（交易日盘中多个时点）
 - **时区**：全链路使用 `Asia/Shanghai`
 
 ## 目录结构
@@ -33,7 +33,8 @@ lof-arbitrage/
 │   ├── sync_daily.py           # 每日数据同步入口
 │   ├── data_quality_check.py   # 数据质量检查
 │   ├── fetch_fund_purchase.py  # 抓取基金申购信息（akshare）
-│   └── LOF_dashboard.py        # Streamlit 仪表板（遗留，GitHub Actions 仍在 bump 版本号）
+│   ├── discover_new_lof.py     # 自动发现新上市LOF + 按类型筛选 + 清理退市
+│   └── LOF_dashboard.py        # Streamlit 仪表板（遗留，不再维护）
 ├── h5/                         # 前端
 │   ├── index.html              # 单文件 Vue 3 SPA（CDN，生产用）
 │   ├── src/                    # Vite + Vue 3 SFC 版（开发用）
@@ -43,13 +44,9 @@ lof-arbitrage/
 │   │   └── main.js / App.vue
 │   ├── package.json / vite.config.js
 │   └── dist/                   # 构建产物（vite build）
-├── data/                       # 262 只 LOF 的历史行情 CSV（lof_{code}.csv）
+├── data/                       # LOF 历史行情 CSV（由定时任务动态生成，不提交到仓库）
 ├── legacy/                     # 旧脚本归档（不再使用，仅供参考）
-├── .github/workflows/
-│   ├── sync_daily.yml          # 交易日盘中 10 时点同步
-│   ├── update_fund_purchase.yml# 每日 08:30 抓申购信息
-│   └── force_streamlit_redeploy.yml
-├── all_LOF.txt                 # LOF 代码清单（262 个，每行一个）
+├── all_LOF.txt                 # LOF 代码清单（自动发现+类型筛选维护）
 ├── requirements.txt
 ├── .gitignore
 └── README.md                   # 本文件
@@ -135,21 +132,13 @@ CORS 允许全部来源（生产环境应收紧）。
 
 ### 运行时生成文件（已 gitignore）
 
-- `last_sync_time.txt` — 最后同步时间（北京时间）
-- `last_sync_report.json` — 同步报告（更新数、失败数、耗时）
-- `data_quality_report.json` — 质量检查报告（新鲜度、完整性、异常值，状态 healthy/degraded/failed）
+- `data/last_sync_time.txt` — 最后同步时间（北京时间）
+- `data/last_sync_report.json` — 同步报告（更新数、失败数、耗时）
+- `data/data_quality_report.json` — 质量检查报告（新鲜度、完整性、异常值，状态 healthy/degraded/failed）
 
-## GitHub Actions 自动化
+## 容器定时任务
 
-### `sync_daily.yml`（主同步）
-
-交易日盘中 10 个时点（北京时间）触发：09:30、10:30、11:30、13:30、14:00、14:15、14:30、14:45、15:00、21:00。流程：checkout → 装 Python 3.10 → `pip install -r requirements.txt` → `sync_daily.py`（continue-on-error）→ `fetch_fund_purchase.py`（continue-on-error）→ `data_quality_check.py`（continue-on-error）→ bump `LOF_dashboard.py` 的 `APP_VERSION` → commit + push 到 `skyz72432-max/lof-arbitrage`（使用 `LOF_PUSH_TOKEN` secret）。
-
-> **注意**：当前 fork 的 remote 是 `git@github.com:liamyu/lof-arbitrage.git`，但 workflow 中 push 目标写死为 `skyz72432-max/lof-arbitrage.git`。若要让 Actions 在 fork 上生效，需修改 workflow 的 remote URL 并配置 `LOF_PUSH_TOKEN` secret。
-
-### `update_fund_purchase.yml`
-
-每日 08:30（北京时间）单独抓取申购信息并提交。
+数据同步由 Docker 容器内的 cron 定时任务执行，不依赖 GitHub Actions。交易日盘中多个时点自动运行 `sync_daily.py`，数据直接写入容器挂载的 `data/` 目录，无需推送到代码仓库。
 
 ## 开发命令
 
@@ -188,7 +177,7 @@ python scripts/fetch_fund_purchase.py
 5. **申购状态解析**：`parse_purchase_limit()` 处理"限购100万"/"无限制"等字符串；`is_purchase_open()` 判断是否可申购；`get_purchase_block_reason()` 返回阻断原因或 None。新增过滤条件应在这三个函数中扩展。
 6. **CSV 编码**：写入用 `encoding='utf-8-sig'`（带 BOM，Excel 友好），读取用默认或 `dtype=str` 保留代码前导零。
 7. **前端两套实现**：修改 `h5/index.html`（生产）和 `h5/src/`（开发）时注意同步。`h5/src/` 版本功能较简化，新增强化功能时应优先更新 `h5/index.html`。
-8. **legacy/ 目录**：旧脚本归档，不再维护，不要从中导入。`scripts/LOF_dashboard.py` 是 Streamlit 遗留仪表板，评分逻辑已迁移到 `core/analyzer.py`，但 GitHub Actions 仍在 bump 其 `APP_VERSION`。
+8. **legacy/ 目录**：旧脚本归档，不再维护，不要从中导入。`scripts/LOF_dashboard.py` 是 Streamlit 遗留仪表板，评分逻辑已迁移到 `core/analyzer.py`。
 9. **数据时间提示**：盘中 T 日溢价率可能为估值或待确认状态（`is_est=True`），属正常现象，不应报为错误。
 
 ## 数据现状
