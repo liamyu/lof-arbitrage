@@ -3,7 +3,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# 安装编译依赖（numpy/pandas 等需要）
+# 安装编译依赖并清理缓存
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 复制并安装 Python 依赖
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && rm -rf /root/.cache/pip
 
 # 复制项目代码
 COPY . .
