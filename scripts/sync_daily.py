@@ -21,6 +21,7 @@ from core.data_sync import DataSyncCore
 from utils.data_manager import DataManager
 from fetch_fund_purchase import fetch_or_load_fund_purchase
 from discover_new_lof import discover_and_update
+from cleanup_old_data import cleanup
 
 # 配置日志
 logging.basicConfig(
@@ -137,6 +138,12 @@ def main():
     write_last_update_time()
     duration = (datetime.now(ZoneInfo("Asia/Shanghai")) - start_time).total_seconds()
     write_sync_report(results, duration)
+
+    # ===== 清理过期数据 =====
+    try:
+        cleanup()
+    except Exception as e:
+        logger.error(f"清理过期数据失败（不阻断主流程）: {e}")
 
     # 如果有失败，以非零退出码退出
     if results['failed']:
