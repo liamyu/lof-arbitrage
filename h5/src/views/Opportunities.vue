@@ -17,6 +17,16 @@
           <input type="checkbox" id="purchaseOpen" v-model="purchaseOpen" />
           <label for="purchaseOpen">仅可申购</label>
         </div>
+        <div class="filter-item">
+          <label>佣金</label>
+          <select v-model="tradeCommission">
+            <option :value="0.025">万2.5</option>
+            <option :value="0.020">万2</option>
+            <option :value="0.01">万1</option>
+            <option :value="0.005">万0.5</option>
+            <option :value="0.001">万0.1</option>
+          </select>
+        </div>
       </div>
       <button class="refresh-btn" @click="load" :disabled="loading">
         {{ loading ? '加载中...' : '刷新' }}
@@ -76,16 +86,18 @@
             </span>
           </div>
           <div class="metric">
+            <span class="label">净利润</span>
+            <span class="value" :class="netProfitClass(f.net_profit)">
+              {{ f.net_profit != null ? f.net_profit.toFixed(2) + '%' : '-' }}
+            </span>
+          </div>
+          <div class="metric">
+            <span class="label">申购费</span>
+            <span class="value">{{ f.purchase_info?.fee_pct != null ? f.purchase_info.fee_pct + '%' : '-' }}</span>
+          </div>
+          <div class="metric">
             <span class="label">成交额</span>
             <span class="value">{{ f.current_volume != null ? f.current_volume + '万' : '-' }}</span>
-          </div>
-          <div class="metric">
-            <span class="label">申购状态</span>
-            <span class="value">{{ f.purchase_info?.purchase_status || '未知' }}</span>
-          </div>
-          <div class="metric">
-            <span class="label">手续费</span>
-            <span class="value">{{ f.purchase_info?.fee_pct != null ? f.purchase_info.fee_pct + '%' : '-' }}</span>
           </div>
         </div>
 
@@ -113,6 +125,7 @@ const loading = ref(false)
 const error = ref('')
 const minScore = ref(50)
 const purchaseOpen = ref(false)
+const tradeCommission = ref(0.025)
 const dataStatus = ref(null)
 
 function scoreClass(score) {
@@ -121,6 +134,13 @@ function scoreClass(score) {
   if (score >= 50) return 'medium'
   if (score >= 35) return 'low'
   return 'poor'
+}
+
+function netProfitClass(np) {
+  if (np == null) return ''
+  if (np >= 3) return 'profit-up'
+  if (np > 0) return 'medium'
+  return 'profit-down'
 }
 
 function purchaseClass(p) {
@@ -146,7 +166,12 @@ async function load() {
   error.value = ''
   try {
     const [oppRes, statusRes] = await Promise.all([
-      api.opportunities({ min_score: minScore.value, purchase_open: purchaseOpen.value, limit: 50 }),
+      api.opportunities({
+        min_score: minScore.value,
+        purchase_open: purchaseOpen.value,
+        trade_commission: tradeCommission.value,
+        limit: 50
+      }),
       api.dataStatus()
     ])
     funds.value = oppRes.data || []
@@ -159,10 +184,10 @@ async function load() {
 }
 
 function goDetail(code) {
-  router.push(`/fund/${code}`)
+  router.push(`/fund/${code}?trade_commission=${tradeCommission.value}`)
 }
 
-watch([minScore, purchaseOpen], load)
+watch([minScore, purchaseOpen, tradeCommission], load)
 onMounted(load)
 </script>
 
@@ -382,6 +407,8 @@ onMounted(load)
 .medium { background: var(--brand-500); }
 .low { background: var(--brand-400); }
 .poor { background: var(--brand-300); color: var(--brand-800); }
+.profit-up { color: var(--success); }
+.profit-down { color: var(--danger); }
 
 .metrics {
   display: grid;

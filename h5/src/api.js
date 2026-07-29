@@ -16,7 +16,13 @@ export const api = {
     const qs = new URLSearchParams(params).toString()
     return fetchJSON(`/opportunities?${qs}`)
   },
-  fundDetail: (code) => fetchJSON(`/funds/${code}`),
+  fundDetail: (code, params = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return fetchJSON(`/funds/${code}?${qs}`)
+  },
   fundHistory: (code, days = 60) => fetchJSON(`/funds/${code}/history?days=${days}`),
-  fundScore: (code) => fetchJSON(`/funds/${code}/score`)
+  fundScore: (code, params = {}) => {
+    const qs = new URLSearchParams(params).toString()
+    return fetchJSON(`/funds/${code}/score?${qs}`)
+  }
 }

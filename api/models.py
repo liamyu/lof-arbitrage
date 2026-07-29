@@ -7,8 +7,18 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 
+class CostBreakdown(BaseModel):
+    gross_spread: Optional[float] = None
+    purchase_fee: Optional[float] = None
+    redeem_fee: Optional[float] = None
+    trade_commission: Optional[float] = None
+    total_cost: Optional[float] = None
+    note: Optional[str] = None
+
+
 class PurchaseInfo(BaseModel):
     fund_name: Optional[str] = None
+    fund_type: Optional[str] = None
     purchase_status: Optional[str] = None
     redeem_status: Optional[str] = None
     purchase_limit: Optional[float] = None
@@ -37,6 +47,12 @@ class FundSignal(BaseModel):
     purchase_info: PurchaseInfo = PurchaseInfo()
     data_as_of: Optional[str] = None
     is_estimated: bool = True
+    # 净利润相关字段
+    net_profit: Optional[float] = None
+    net_profit_signal: Optional[str] = None
+    cost_breakdown: Optional[CostBreakdown] = None
+    arbitrage_direction: Optional[str] = None
+    is_qdii: bool = False
 
 
 class FundDetail(FundSignal):

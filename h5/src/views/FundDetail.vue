@@ -31,8 +31,10 @@
           </div>
         </div>
         <div class="metric-box">
-          <div class="metric-label">最新成交额</div>
-          <div class="metric-value">{{ fund.current_volume != null ? fund.current_volume + '万' : '-' }}</div>
+          <div class="metric-label">套利净利润</div>
+          <div class="metric-value" :class="netProfitClass(fund.net_profit)">
+            {{ fund.net_profit != null ? fund.net_profit.toFixed(2) + '%' : '-' }}
+          </div>
         </div>
         <div class="metric-box">
           <div class="metric-label">3日平均溢价</div>
@@ -45,6 +47,38 @@
           <div class="metric-value" :class="fund.key_metrics?.premium_5d > 0 ? 'up' : 'down'">
             {{ fund.key_metrics?.premium_5d != null ? fund.key_metrics.premium_5d.toFixed(2) + '%' : '-' }}
           </div>
+        </div>
+      </div>
+
+      <!-- 成本明细 -->
+      <div class="section" v-if="fund.cost_breakdown">
+        <h3>成本明细（{{ fund.arbitrage_direction === 'premium' ? '溢价套利' : '折价套利' }}）</h3>
+        <div class="info-row">
+          <span>毛利差</span>
+          <span>{{ fund.cost_breakdown.gross_spread != null ? fund.cost_breakdown.gross_spread.toFixed(2) + '%' : '-' }}</span>
+        </div>
+        <div class="info-row">
+          <span>申购费</span>
+          <span>{{ fund.cost_breakdown.purchase_fee != null ? fund.cost_breakdown.purchase_fee.toFixed(2) + '%' : '-' }}</span>
+        </div>
+        <div class="info-row">
+          <span>赎回费</span>
+          <span>{{ fund.cost_breakdown.redeem_fee != null ? fund.cost_breakdown.redeem_fee.toFixed(2) + '%' : '-' }}</span>
+        </div>
+        <div class="info-row">
+          <span>交易佣金</span>
+          <span>{{ fund.cost_breakdown.trade_commission != null ? fund.cost_breakdown.trade_commission.toFixed(3) + '%' : '-' }}</span>
+        </div>
+        <div class="info-row" style="font-weight:600;">
+          <span>合计成本</span>
+          <span>{{ fund.cost_breakdown.total_cost != null ? fund.cost_breakdown.total_cost.toFixed(3) + '%' : '-' }}</span>
+        </div>
+        <div class="info-row">
+          <span>净利润</span>
+          <span :class="netProfitClass(fund.net_profit)">
+            {{ fund.net_profit != null ? fund.net_profit.toFixed(2) + '%' : '-' }}
+            <span v-if="fund.net_profit_signal" class="net-signal">{{ fund.net_profit_signal }}</span>
+          </span>
         </div>
       </div>
 
@@ -133,6 +167,13 @@ function scoreClass(score) {
   return 'poor'
 }
 
+function netProfitClass(np) {
+  if (np == null) return ''
+  if (np >= 3) return 'profit-up'
+  if (np > 0) return 'medium'
+  return 'profit-down'
+}
+
 function purchaseClass(p) {
   if (!p || !p.purchase_status) return 'blocked'
   const s = p.purchase_status
@@ -156,7 +197,8 @@ async function load() {
   error.value = ''
   try {
     const code = route.params.code
-    fund.value = await api.fundDetail(code)
+    const tc = parseFloat(route.query.trade_commission) || 0.025
+    fund.value = await api.fundDetail(code, { trade_commission: tc })
   } catch (e) {
     error.value = e.message || '加载失败'
   } finally {
@@ -409,4 +451,20 @@ onMounted(load)
 .medium { background: var(--brand-500); }
 .low { background: var(--brand-400); }
 .poor { background: var(--brand-300); color: var(--brand-800); }
+.profit-up { color: var(--success); }
+.profit-down { color: var(--danger); }
+
+.net-signal {
+  display: inline-flex;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.up { color: var(--success); }
+.down { color: var(--danger); }
 </style>

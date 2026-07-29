@@ -15,12 +15,15 @@ router = APIRouter(prefix="/funds", tags=["funds"])
 
 
 @router.get("/{code}", response_model=FundDetail)
-def get_fund_detail(code: str):
+def get_fund_detail(
+    code: str,
+    trade_commission: float = Query(0.025, ge=0, le=1, description="交易佣金率（单边，默认 0.025%）")
+):
     """
     获取单个基金的详细信息
     """
     analyzer = LOFArbitrageAnalyzer()
-    detail = analyzer.get_fund_detail(code)
+    detail = analyzer.get_fund_detail(code, trade_commission=trade_commission)
 
     if detail is None:
         raise HTTPException(status_code=404, detail=f"基金 {code} 未找到")
@@ -29,23 +32,29 @@ def get_fund_detail(code: str):
 
 
 @router.get("/{code}/score", response_model=FundSignal)
-def get_fund_score(code: str):
+def get_fund_score(
+    code: str,
+    trade_commission: float = Query(0.025, ge=0, le=1, description="交易佣金率（单边，默认 0.025%）")
+):
     """
     获取单个基金的评分
     """
     analyzer = LOFArbitrageAnalyzer()
     lof_data = analyzer.load_all_data()
+    purchase_info_map = analyzer.load_purchase_info()
 
     if code not in lof_data:
         raise HTTPException(status_code=404, detail=f"基金 {code} 未找到")
 
-    signal = analyzer.score_one_lof(lof_data, code)
+    purchase_info = purchase_info_map.get(code, {})
+    signal = analyzer.score_one_lof(lof_data, code,
+                                     purchase_info=purchase_info,
+                                     trade_commission=trade_commission)
 
     # 补充申购信息
-    purchase_info_map = analyzer.load_purchase_info()
-    purchase_info = purchase_info_map.get(code, {})
     signal["purchase_info"] = {
         "fund_name": purchase_info.get("fund_name"),
+        "fund_type": purchase_info.get("fund_type"),
         "purchase_status": purchase_info.get("purchase_status"),
         "redeem_status": purchase_info.get("redeem_status"),
         "purchase_limit": purchase_info.get("purchase_limit"),
