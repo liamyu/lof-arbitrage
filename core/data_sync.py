@@ -122,7 +122,7 @@ class DataSyncCore:
         filename = f"{self.data_dir}/lof_{code}.csv"
         if os.path.exists(filename):
             try:
-                df = pd.read_csv(filename, dtype=str)
+                df = pd.read_csv(filename, dtype=object)
                 df['price_dt'] = pd.to_datetime(df['price_dt'])
                 numeric_cols = ['price', 'discount_rt', 'net_value']
                 for col in numeric_cols:
