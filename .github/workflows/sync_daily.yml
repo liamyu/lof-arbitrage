@@ -71,7 +71,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
 
-          git remote set-url origin "https://x-access-token:${MY_TOKEN}@github.com/skyz72432-max/lof-arbitrage.git"
+          git remote set-url origin "https://x-access-token:${MY_TOKEN}@github.com/liamyu/lof-arbitrage.git"
 
           mkdir -p logs
           git add data/ all_LOF.txt scripts/LOF_dashboard.py logs/
