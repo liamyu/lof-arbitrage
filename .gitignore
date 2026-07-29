@@ -24,3 +24,14 @@ logs/
 # Node
 node_modules/
 package-lock.json
+h5/dist/
+
+# 运行时生成文件（防止误提交到根目录）
+last_sync_time.txt
+last_sync_report.json
+data_quality_report.json
+fund_purchase_em_*.csv
+*.log
+
+# Streamlit
+.streamlit/

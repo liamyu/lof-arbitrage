@@ -552,7 +552,7 @@
               <div class="filter-item"><label>仅可申购</label><input type="checkbox" v-model="purchaseOpen" /></div>
               <div class="filter-item"><label>佣金</label>
                 <select v-model="tradeCommission">
-                  <option :value="0.025">万2.5</option><option :value="0.020">万2</option><option :value="0.01">万1</option>
+                  <option :value="0.020">万2</option><option :value="0.01">万1</option>
                   <option :value="0.005">万0.5</option><option :value="0.001">万0.1</option>
                 </select>
               </div>
@@ -583,6 +583,7 @@
               <div class="card-meta">
                 <span class="signal-tag" :class="scoreClass(f.score)">{{ f.signal }}</span>
                 <span v-if="f.purchase_info?.purchase_status" class="purchase-tag" :class="purchaseClass(f.purchase_info)">{{ purchaseText(f.purchase_info) }}</span>
+                <span v-if="f.is_t1_fallback" class="purchase-tag limited">昨日数据</span>
               </div>
               <div v-if="f._block_reason" class="block-tag">{{ f._block_reason }}</div>
               <div class="metrics">
@@ -601,7 +602,7 @@
       setup() {
         const router = useRouter();
         const funds = ref([]), loading = ref(false), error = ref('');
-        const minScore = ref(50), purchaseOpen = ref(false), tradeCommission = ref(0.025);
+        const minScore = ref(50), purchaseOpen = ref(false), tradeCommission = ref(0.020);
         const maxFee = ref(0.5), minLimit = ref(1000);
         const dataStatus = ref(null);
         function netProfitClass(np) { if (np == null) return ''; if (np >= 3) return 'profit-up'; if (np > 0) return 'medium'; return 'profit-down'; }
@@ -631,6 +632,7 @@
               <div class="score-row">
                 <div class="big-score" :class="scoreClass(fund.score)">{{ fund.score }}</div>
                 <div class="signal" :class="scoreClass(fund.score)">{{ fund.signal }}</div>
+                <span v-if="fund.is_t1_fallback" class="purchase-tag limited">基于昨日溢价率</span>
               </div>
             </div>
             <div class="metric-grid">
@@ -690,7 +692,7 @@
         const fund = ref(null), loading = ref(false), error = ref('');
         function netProfitClass(np) { if (np == null) return ''; if (np >= 3) return 'profit-up'; if (np > 0) return 'medium'; return 'profit-down'; }
          async function load() { loading.value = true; error.value = ''; try {
-           const tc = parseFloat(route.query.trade_commission) || 0.025;
+           const tc = parseFloat(route.query.trade_commission) || 0.020;
           fund.value = await api.fundDetail(route.params.code, { trade_commission: tc });
         } catch (e) { error.value = e.message || '加载失败'; } finally { loading.value = false; }}
         onMounted(load);
@@ -719,14 +721,11 @@
             </div>
           </div>
           <div class="schedule-card">
-            <h3>盘中更新时点</h3>
+            <h3>每日更新时点</h3>
             <div class="schedule-list">
-              <div class="schedule-item">09:30 开盘</div><div class="schedule-item">10:30</div><div class="schedule-item">11:30</div>
-              <div class="schedule-item">13:30</div><div class="schedule-item">14:00</div><div class="schedule-item">14:15</div>
-              <div class="schedule-item">14:30</div><div class="schedule-item">14:45</div><div class="schedule-item">15:00 收盘</div>
               <div class="schedule-item">21:00 晚间</div>
             </div>
-            <p class="schedule-note">仅交易日自动执行，周末和节假日跳过</p>
+            <p class="schedule-note">仅在基金公司公布当日净值后同步一次，避免获取到缺失溢价率的半成品数据。周末和节假日跳过。</p>
           </div>
           <div class="disclaimer">
             <h3>免责声明</h3>

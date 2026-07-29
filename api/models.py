@@ -53,6 +53,7 @@ class FundSignal(BaseModel):
     cost_breakdown: Optional[CostBreakdown] = None
     arbitrage_direction: Optional[str] = None
     is_qdii: bool = False
+    is_t1_fallback: bool = False
 
 
 class FundDetail(FundSignal):

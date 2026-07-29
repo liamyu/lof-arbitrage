@@ -36,14 +36,25 @@ echo "[4/4] 检查服务状态..."
 if docker-compose ps | grep -q "Up"; then
     echo "服务状态: 运行正常"
     echo ""
+
+    # 获取实际映射的端口
+    PORT=$(docker-compose port nginx 80 2>/dev/null | cut -d: -f2 || echo "18080")
+    IP=$(hostname -I | awk '{print $1}')
+
     echo "访问地址:"
-    echo "  - H5 页面:    http://$(hostname -I | awk '{print $1}'):8080"
-    echo "  - API 文档:   http://$(hostname -I | awk '{print $1}'):8080/docs"
-    echo "  - 健康检查:   http://$(hostname -I | awk '{print $1}'):8080/api/v1/health"
+    echo "  - H5 页面:    http://${IP}:${PORT}"
+    echo "  - API 文档:   http://${IP}:${PORT}/docs"
+    echo "  - 健康检查:   http://${IP}:${PORT}/api/v1/meta/health"
+    echo "  - 调度器状态: http://${IP}:${PORT}/api/v1/meta/scheduler"
     echo ""
     echo "========================================"
-    echo "首次使用请先执行数据同步："
-    echo "  docker exec lof-api python scripts/sync_daily.py"
+    echo "定时同步: 容器内置 APScheduler，交易日 21:00 自动执行"
+    echo "========================================"
+    echo ""
+    echo "首次使用建议执行数据初始化:"
+    echo "  docker exec lof-api python scripts/discover_new_lof.py"
+    echo "  docker exec lof-api python scripts/fetch_fund_purchase.py"
+    echo "  docker exec lof-api python scripts/sync_daily.py --init"
     echo "========================================"
 else
     echo "警告: 服务可能未正常启动，请检查日志："

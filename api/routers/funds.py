@@ -17,7 +17,7 @@ router = APIRouter(prefix="/funds", tags=["funds"])
 @router.get("/{code}", response_model=FundDetail)
 def get_fund_detail(
     code: str,
-    trade_commission: float = Query(0.025, ge=0, le=1, description="交易佣金率（单边，默认 0.025%）")
+    trade_commission: float = Query(0.020, ge=0, le=1, description="交易佣金率（单边，默认 0.020%）")
 ):
     """
     获取单个基金的详细信息
@@ -34,7 +34,7 @@ def get_fund_detail(
 @router.get("/{code}/score", response_model=FundSignal)
 def get_fund_score(
     code: str,
-    trade_commission: float = Query(0.025, ge=0, le=1, description="交易佣金率（单边，默认 0.025%）")
+    trade_commission: float = Query(0.020, ge=0, le=1, description="交易佣金率（单边，默认 0.020%）")
 ):
     """
     获取单个基金的评分

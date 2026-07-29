@@ -1,7 +1,7 @@
 """
 定时任务调度器
 在 FastAPI 应用启动时自动注册，随容器生命周期运行
-交易日盘中多个时点自动同步数据，周末/节假日自动跳过
+每日晚间净值公布后自动同步数据（含 LOF 清单更新），周末/节假日自动跳过
 """
 import os
 import sys
@@ -23,18 +23,10 @@ sys.path.insert(0, os.path.join(project_root, "scripts"))
 # 全局调度器实例
 scheduler: AsyncIOScheduler = None
 
-# 盘中同步时点（北京时间）
+# 同步时点（北京时间）：仅在晚间净值更新后执行一次同步
+# 盘中不再同步，避免获取到缺失溢价率的半成品数据
 SYNC_TIMES = [
-    {"hour": 9,  "minute": 30},   # 开盘
-    {"hour": 10, "minute": 30},
-    {"hour": 11, "minute": 30},
-    {"hour": 13, "minute": 30},
-    {"hour": 14, "minute": 0},
-    {"hour": 14, "minute": 15},
-    {"hour": 14, "minute": 30},
-    {"hour": 14, "minute": 45},
-    {"hour": 15, "minute": 0},    # 收盘
-    {"hour": 21, "minute": 0},    # 晚间
+    {"hour": 21, "minute": 0},    # 晚间：基金公司公布当日净值后
 ]
 
 
@@ -52,15 +44,27 @@ def _run_sync():
 
         from core.data_sync import DataSyncCore
         from fetch_fund_purchase import fetch_or_load_fund_purchase
+        from discover_new_lof import discover_and_update
 
-        # 1. 同步基金申购赎回信息
+        # 1. 更新 LOF 清单（发现新上市 / 清理退市，每天一次）
+        try:
+            logger.info("[scheduler] 检查 LOF 清单变动...")
+            new_codes, delisted_codes = discover_and_update()
+            if new_codes:
+                logger.info(f"[scheduler] 发现 {len(new_codes)} 个新 LOF")
+            if delisted_codes:
+                logger.info(f"[scheduler] 清理 {len(delisted_codes)} 个退市 LOF")
+        except Exception as e:
+            logger.error(f"[scheduler] LOF 清单更新失败: {e}")
+
+        # 2. 同步基金申购赎回信息
         try:
             logger.info("[scheduler] 同步基金申购赎回信息...")
             fetch_or_load_fund_purchase()
         except Exception as e:
             logger.error(f"[scheduler] 申购信息同步失败: {e}")
 
-        # 2. 增量数据同步
+        # 3. 增量数据同步
         logger.info("[scheduler] 执行增量数据同步...")
         syncer = DataSyncCore()
         results = syncer.sync_all()
@@ -70,13 +74,13 @@ def _run_sync():
         new_records = sum(r['new'] for r in results['updated'])
         logger.info(f"[scheduler] 同步完成: {updated}/{total} 更新, {new_records} 条新增, {len(results['failed'])} 失败")
 
-        # 3. 写入同步时间
+        # 4. 写入同步时间
         sync_time_path = os.path.join(project_root, "data", "last_sync_time.txt")
         now_cn = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d %H:%M")
         with open(sync_time_path, "w", encoding="utf-8") as f:
             f.write(now_cn)
 
-        # 4. 写入同步报告
+        # 5. 写入同步报告
         import json
         report_path = os.path.join(project_root, "data", "last_sync_report.json")
         report = {
@@ -90,7 +94,7 @@ def _run_sync():
         with open(report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
 
-        # 5. 数据质量检查
+        # 6. 数据质量检查
         try:
             logger.info("[scheduler] 执行数据质量检查...")
             import subprocess

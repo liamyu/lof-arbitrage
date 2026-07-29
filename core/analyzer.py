@@ -118,7 +118,7 @@ def estimate_redeem_fee(purchase_info: Optional[Dict[str, Any]],
 
 
 def calculate_premium_net_profit(cur_premium: float, fee_pct: Optional[float],
-                                  trade_commission: float = 0.025) -> float:
+                                  trade_commission: float = 0.020) -> float:
     """
     计算溢价套利净利润（%）。
     公式: 溢价率 - 申购费 - 交易佣金（卖出）
@@ -129,7 +129,7 @@ def calculate_premium_net_profit(cur_premium: float, fee_pct: Optional[float],
 
 
 def calculate_discount_net_profit(abs_discount: float, redeem_fee: float,
-                                   trade_commission: float = 0.025) -> float:
+                                   trade_commission: float = 0.020) -> float:
     """
     计算折价套利净利润（%）。
     公式: |折价率| - 赎回费 - 交易佣金（买入）
@@ -301,10 +301,10 @@ class LOFArbitrageAnalyzer:
 
     def score_one_lof(self, lof_data: Dict[str, pd.DataFrame], code: str,
                        purchase_info: Optional[Dict[str, Any]] = None,
-                       trade_commission: float = 0.025) -> Dict[str, Any]:
+                       trade_commission: float = 0.020) -> Dict[str, Any]:
         """
         对单个 LOF 进行评分，并计算净利润。
-        :param trade_commission: 交易佣金率（单边，默认 0.025%，即万 2.5）
+        :param trade_commission: 交易佣金率（单边，默认 0.020%，即万 2）
         """
         if code not in lof_data:
             return {
@@ -330,6 +330,17 @@ class LOFArbitrageAnalyzer:
         cur_premium = current["discount_rt"]
         cur_volume = current.get("volume", 0)
         cur_pct = current.get("price_pct", 0)
+
+        # 如果当日溢价率缺失，回退到最近有效记录（T-1）
+        is_t1_fallback = False
+        if cur_premium is None or pd.isna(cur_premium):
+            valid_recent = recent[recent["discount_rt"].notna()]
+            if not valid_recent.empty:
+                current = valid_recent.iloc[-1]
+                cur_premium = current["discount_rt"]
+                cur_volume = current.get("volume", 0)
+                cur_pct = current.get("price_pct", 0)
+                is_t1_fallback = True
 
         # 获取申购信息
         fee_pct = None
@@ -362,7 +373,7 @@ class LOFArbitrageAnalyzer:
         arbitrage_direction = None
 
         if cur_premium is None or pd.isna(cur_premium):
-            minus.append("当日溢价率缺失，无法进一步分析")
+            minus.append("溢价率数据缺失，无法分析")
         elif cur_premium < 0:
             # ================= 折价套利评分 =================
             abs_discount = abs(cur_premium)
@@ -558,6 +569,10 @@ class LOFArbitrageAnalyzer:
             else:
                 plus.append(f"净利润覆盖历史T+2最大回撤({t2_risk:.2f}%)，风险可控")
 
+        # 如果使用了T-1数据，添加提示说明
+        if is_t1_fallback:
+            plus.append("基于昨日溢价率判断（当日净值尚未公布）")
+
         return {
             "code": code,
             "score": total_score,
@@ -578,7 +593,8 @@ class LOFArbitrageAnalyzer:
             "net_profit_signal": net_signal,
             "cost_breakdown": cost_breakdown,
             "arbitrage_direction": arbitrage_direction,
-            "is_qdii": qdii
+            "is_qdii": qdii,
+            "is_t1_fallback": is_t1_fallback
         }
 
     def _build_purchase_info(self, raw: Dict[str, Any]) -> Dict[str, Any]:
@@ -592,7 +608,7 @@ class LOFArbitrageAnalyzer:
             "fee_pct": raw.get("fee_pct")
         }
 
-    def get_all_signals(self, trade_commission: float = 0.025) -> List[Dict[str, Any]]:
+    def get_all_signals(self, trade_commission: float = 0.020) -> List[Dict[str, Any]]:
         """获取所有 LOF 的套利信号（无 Streamlit 缓存依赖）"""
         lof_data = self.load_all_data()
         purchase_info_map = self.load_purchase_info()
@@ -613,7 +629,7 @@ class LOFArbitrageAnalyzer:
 
     def get_opportunities(self, min_score: int = 50, purchase_open: bool = False,
                           max_fee: float = 0.5, min_purchase_limit: float = 1000,
-                          trade_commission: float = 0.025,
+                          trade_commission: float = 0.020,
                           min_net_profit: Optional[float] = None) -> List[Dict[str, Any]]:
         """
         获取套利机会列表（API 友好接口）
@@ -621,7 +637,7 @@ class LOFArbitrageAnalyzer:
         :param purchase_open: 是否只返回可申购的
         :param max_fee: 最大手续费百分比（默认 0.5%）
         :param min_purchase_limit: 最小申购限额（默认 1000 元）
-        :param trade_commission: 交易佣金率（单边，默认 0.025%）
+        :param trade_commission: 交易佣金率（单边，默认 0.020%）
         :param min_net_profit: 最低净利润阈值（默认 None 不启用）
         """
         signals = self.get_all_signals(trade_commission=trade_commission)
@@ -655,7 +671,7 @@ class LOFArbitrageAnalyzer:
         return filtered
 
     def get_fund_detail(self, code: str,
-                         trade_commission: float = 0.025) -> Optional[Dict[str, Any]]:
+                         trade_commission: float = 0.020) -> Optional[Dict[str, Any]]:
         """获取单个基金详情（API 友好接口）"""
         lof_data = self.load_all_data()
         if code not in lof_data:

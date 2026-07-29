@@ -4,23 +4,28 @@
 
 ```
 ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-│   浏览器     │─────▶│  Nginx:8080 │─────▶│  FastAPI    │
+│   浏览器     │─────▶│  Nginx:80   │─────▶│  FastAPI    │
 │  (手机/PC)   │      │  前端+代理   │      │  后端:8000  │
-└─────────────┘      └─────────────┘      └─────────────┘
-                              │                    │
-                              ▼                    ▼
-                        ./h5 (静态文件)      ./data (持久化数据)
+└─────────────┘      └──────┬──────┘      └──────┬──────┘
+                            │                    │
+                            ▼                    ▼
+                      ./h5 (静态文件)      ./data (持久化数据)
+                                                  │
+                                                  ▼
+                                           APScheduler
+                                        交易日 21:00 自动同步
 ```
 
-- **Nginx**: 对外暴露 8080 端口，托管 H5 前端页面，同时反向代理 API 请求到后端
+- **Nginx**: 对外暴露端口（默认 18080），托管 H5 前端页面，反向代理 API 请求到后端
 - **FastAPI**: 提供 REST API，处理评分计算、数据查询
-- **数据卷**: `./data` 目录持久化 LOF 历史行情数据
+- **APScheduler**: 容器内定时任务调度器，交易日 21:00 自动执行数据同步（无需外部 cron）
+- **数据卷**: `./data` 目录持久化 LOF 历史行情、申购信息、同步状态等数据
 
 ## 前置条件
 
 1. 极空间 NAS 已开启 Docker 功能
 2. 已安装 Docker Compose（极空间 Docker 应用自带）
-3. 保证 NAS 能访问外网（同步数据需要从集思录等站点拉取）
+3. 保证 NAS 能访问外网（同步数据需要从集思录、东方财富等站点拉取）
 
 ## 部署步骤
 
@@ -63,7 +68,7 @@
    - 构建完成后，两个容器都会显示「运行中」
 
 6. **访问服务**
-   - 浏览器访问 `http://<极空间IP>:8080`
+   - 浏览器访问 `http://<极空间IP>:18080`
    - 手机访问同理，确保手机和 NAS 在同一局域网
 
 ### 方法二：SSH 命令行部署
@@ -84,37 +89,52 @@ docker-compose logs -f
 docker-compose down
 ```
 
-## 首次数据同步
+## 首次数据初始化
 
-部署完成后，需要手动执行一次数据同步来填充历史数据：
+部署完成后，容器内的 APScheduler 会在下一个交易日 21:00 自动执行首次同步。在此之前页面数据为空，建议手动执行初始化：
 
 ```bash
-# 进入 API 容器执行同步
-docker exec lof-api python scripts/sync_daily.py
+# 1. 更新 LOF 清单（自动发现全市场 LOF、筛选类型、清理退市）
+docker exec lof-api python scripts/discover_new_lof.py
+
+# 2. 抓取基金申购赎回信息
+docker exec lof-api python scripts/fetch_fund_purchase.py
+
+# 3. 同步历史行情数据
+docker exec lof-api python scripts/sync_daily.py --init
+
+# 4. 数据质量检查
+docker exec lof-api python scripts/data_quality_check.py
 ```
 
 或在极空间 Docker 界面中：
 1. 找到 `lof-api` 容器
 2. 点击「终端」
-3. 执行 `python scripts/sync_daily.py`
+3. 依次执行上述命令
 
 同步完成后，页面即可正常显示套利机会。
 
-## 定时自动同步（推荐）
+## 定时自动同步（内置，无需额外配置）
 
-极空间支持「计划任务」功能：
+容器启动后，APScheduler 自动在后台运行：
 
-1. 打开极空间「计划任务」应用
-2. 新建任务，类型选择「脚本」
-3. 执行命令：
-   ```bash
-   docker exec lof-api python scripts/sync_daily.py
-   ```
-4. 设置定时规则：
-   - 交易日：每天 15:30（收盘后）
-   - 频率：每周一至周五
+- **同步时点**：交易日 21:00（晚间净值公布后，避免盘中获取半成品估值数据）
+- **同步内容**：
+  1. 更新 LOF 清单（发现新上市 / 清理退市）
+  2. 抓取基金申购赎回信息
+  3. 增量同步历史行情数据
+  4. 写入同步报告
+  5. 数据质量检查
+- **非交易日**：自动跳过，不执行同步
 
-或在容器内配置 cron（需修改 Dockerfile 添加 cron 支持）。
+**查看调度器状态**：
+```bash
+docker exec lof-api curl -s http://localhost:8000/api/v1/meta/scheduler | python -m json.tool
+```
+
+或在浏览器中访问 `http://<NAS_IP>:18080/api/v1/meta/scheduler`。
+
+> **注意**：无需配置极空间计划任务或 cron，所有定时逻辑已在容器内自动处理。
 
 ## 目录说明
 
@@ -122,7 +142,7 @@ docker exec lof-api python scripts/sync_daily.py
 
 | 本地路径 | 容器内路径 | 说明 |
 |---------|-----------|------|
-| `.../lof/data` | `/app/data` | LOF 历史行情数据（需持久化） |
+| `.../lof/data` | `/app/data` | LOF 历史行情、申购信息、同步状态（需持久化） |
 | `.../lof/logs` | `/app/logs` | 同步日志 |
 | `.../lof/h5` | `/usr/share/nginx/html` | H5 前端页面 |
 | `.../lof/nginx.conf` | `/etc/nginx/conf.d/default.conf` | Nginx 配置文件 |
@@ -148,11 +168,22 @@ docker-compose up -d --build
 # 进入 API 容器调试
 docker exec -it lof-api bash
 
-# 手动触发数据同步
+# 手动触发数据同步（全部流程）
+docker exec lof-api python scripts/discover_new_lof.py
+docker exec lof-api python scripts/fetch_fund_purchase.py
 docker exec lof-api python scripts/sync_daily.py
 
 # 数据质量检查
 docker exec lof-api python scripts/data_quality_check.py
+
+# 清理过期数据（保留 64 天，自动执行，可手动触发）
+docker exec lof-api python scripts/cleanup_old_data.py
+
+# 查看调度器状态
+docker exec lof-api curl -s http://localhost:8000/api/v1/meta/scheduler
+
+# 查看数据状态
+docker exec lof-api curl -s http://localhost:8000/api/v1/meta/data-status
 ```
 
 ## 故障排查
@@ -162,13 +193,26 @@ docker exec lof-api python scripts/data_quality_check.py
 2. 查看 API 日志：`docker-compose logs api`
 3. 确认 `data` 目录有数据文件（至少有一个 `lof_*.csv`）
 
+### 数据滞后或未更新
+1. 检查调度器状态：`docker exec lof-api curl -s http://localhost:8000/api/v1/meta/scheduler`
+2. 查看是否为非交易日（非交易日不执行同步）
+3. 手动触发同步：`docker exec lof-api python scripts/sync_daily.py`
+4. 检查数据质量：`docker exec lof-api python scripts/data_quality_check.py`
+
 ### 端口冲突
-如果 8080 端口已被占用，修改 `docker-compose.yml` 中的端口映射，如改为 `18080:80`。
+如果 18080 端口已被占用，修改 `docker-compose.yml` 中的端口映射，如改为 `28080:80`。
 
 ### 数据同步失败
-1. 确认 NAS 能访问外网（集思录网站）
+1. 确认 NAS 能访问外网（集思录 `jisilu.cn`、东方财富）
 2. 检查是否有代理/VPN 影响
 3. 查看同步日志：`docker-compose logs api | grep sync`
+4. 单只基金测试：`docker exec lof-api python scripts/sync_daily.py --code 161725`
+
+### 容器健康检查失败
+健康检查路径为 `/api/v1/meta/health`。如果健康检查持续失败：
+1. 检查 API 是否启动完成（首次启动需等待依赖安装）
+2. 查看 API 容器日志：`docker-compose logs api`
+3. 手动测试：`docker exec lof-api curl http://localhost:8000/api/v1/meta/health`
 
 ## 更新升级
 
