@@ -5,7 +5,7 @@
 1. data/lof_{code}.csv — 每个 LOF 的历史行情，只保留最近 N 天
 2. data/fund_purchase_em_*.csv — 申购信息缓存，只保留最近 1 天（fetch_fund_purchase.py 已自动清理非当天文件，这里做兜底）
 
-保留天数默认 35 天（评分引擎需要 30 天历史 + 5 天缓冲）。
+保留天数默认 64 天（前端历史图表默认展示 60 天 + 4 天缓冲）。
 """
 import os
 import sys
@@ -27,8 +27,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 保留天数（评分引擎需要 30 天历史 + 缓冲）
-DEFAULT_KEEP_DAYS = 35
+# 保留天数（前端历史图表默认展示 60 天 + 缓冲）
+DEFAULT_KEEP_DAYS = 64
 
 
 def cleanup_lof_csv(keep_days: int = DEFAULT_KEEP_DAYS) -> int:
