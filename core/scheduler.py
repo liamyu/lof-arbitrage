@@ -105,6 +105,22 @@ def _run_sync():
         except Exception as e:
             logger.error(f"[scheduler] 数据质量检查失败: {e}")
 
+        # 7. 清除 API 内存缓存，使下次请求加载新数据
+        try:
+            from core.analyzer import invalidate_analyzer_cache, get_analyzer
+            invalidate_analyzer_cache()
+            logger.info("[scheduler] API 缓存已清除，下次请求将加载新数据")
+
+            # 8. 预计算套利信号并写入磁盘缓存（加速服务重启）
+            analyzer = get_analyzer()
+            analyzer.get_all_signals()  # 触发全量计算
+            if analyzer.save_signals_cache():
+                logger.info("[scheduler] 预计算信号缓存已写入 opportunities_cache.json")
+            else:
+                logger.warning("[scheduler] 预计算信号缓存写入失败")
+        except Exception as e:
+            logger.error(f"[scheduler] 缓存处理失败: {e}")
+
     except Exception as e:
         logger.error(f"[scheduler] 同步任务异常: {e}")
         logger.error(traceback.format_exc())

@@ -3,6 +3,8 @@ LOF 套利评分分析器（纯数据服务，无 UI 依赖）
 从 LOF_dashboard.py 中提取的纯逻辑评分引擎
 """
 import os
+import copy
+import threading
 import warnings
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
@@ -216,6 +218,25 @@ def get_cache_path(project_root: str) -> Optional[str]:
     return None
 
 
+def _json_default(obj):
+    """JSON 序列化默认处理器：将 numpy/pandas 类型转为原生 Python 类型"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        val = float(obj)
+        return None if np.isnan(val) else val
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    try:
+        if pd.isna(obj):
+            return None
+    except (TypeError, ValueError):
+        pass
+    return str(obj)
+
+
 class LOFArbitrageAnalyzer:
     """LOF 套利评分分析器（无 Streamlit 依赖）"""
 
@@ -223,74 +244,127 @@ class LOFArbitrageAnalyzer:
         self.data_dir = data_dir
         self._lof_data: Optional[Dict[str, pd.DataFrame]] = None
         self._purchase_info: Optional[Dict[str, dict]] = None
+        self._data_signature: Optional[tuple] = None
+        self._signals_cache: Dict[float, tuple] = {}  # {trade_commission: (signature, signals)}
+        self._lock = threading.Lock()
 
-    def load_all_data(self) -> Dict[str, pd.DataFrame]:
-        """加载所有 LOF 数据（无缓存装饰器，由调用方决定是否缓存）"""
+    def _get_data_signature(self) -> tuple:
+        """计算数据目录的指纹（基于 last_sync_time.txt 的 mtime + CSV 文件数量 + 申购文件 mtime）"""
         project_root = get_project_root()
         data_dir_path = os.path.join(project_root, self.data_dir)
+        sig_parts = []
 
-        csv_files = [f for f in os.listdir(data_dir_path)
-                     if f.startswith('lof_') and f.endswith('.csv')]
-        lof_data = {}
-        for file in csv_files:
-            code = file.replace('lof_', '').replace('.csv', '')
-            file_path = os.path.join(data_dir_path, file)
-            try:
-                df = pd.read_csv(file_path, dtype=str)
-                df['price_dt'] = pd.to_datetime(df['price_dt'], errors='coerce')
+        sync_time_file = os.path.join(data_dir_path, "last_sync_time.txt")
+        if os.path.exists(sync_time_file):
+            sig_parts.append(os.path.getmtime(sync_time_file))
 
-                # 数值列统一转换
-                numeric_cols = ['price', 'net_value', 'est_val', 'discount_rt', 'volume', 'amount', 'amount_incr']
-                for col in numeric_cols:
-                    if col in df.columns:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
+        if os.path.exists(data_dir_path):
+            csv_count = sum(1 for f in os.listdir(data_dir_path)
+                           if f.startswith('lof_') and f.endswith('.csv'))
+            sig_parts.append(csv_count)
 
-                df["price_pct"] = df["price"].pct_change() * 100
+        purchase_path = get_cache_path(project_root)
+        if purchase_path and os.path.exists(purchase_path):
+            sig_parts.append(os.path.getmtime(purchase_path))
 
-                # 用估值回填缺失的溢价率
-                if 'est_val' in df.columns and 'discount_rt' in df.columns:
-                    mask = df['discount_rt'].isna() & df['est_val'].notna() & df['est_val'] != 0
-                    df.loc[mask, 'discount_rt'] = ((df.loc[mask, 'price'] / df.loc[mask, 'est_val'] - 1) * 100).round(2)
+        return tuple(sig_parts) if sig_parts else (0,)
 
-                df = df.dropna(subset=['price_dt'])
-                if not df.empty:
-                    lof_data[code] = df.sort_values('price_dt').reset_index(drop=True)
-            except Exception as e:
-                print(f"加载 {code} 数据失败: {e}")
-        return lof_data
+    def _is_cache_valid(self) -> bool:
+        """检查缓存是否仍然有效（数据指纹未变化）"""
+        if self._data_signature is None:
+            return False
+        return self._get_data_signature() == self._data_signature
+
+    def invalidate_cache(self):
+        """手动清除所有缓存（数据同步完成后调用）"""
+        with self._lock:
+            self._lof_data = None
+            self._purchase_info = None
+            self._data_signature = None
+            self._signals_cache = {}
+
+    def load_all_data(self) -> Dict[str, pd.DataFrame]:
+        """加载所有 LOF 数据（带 mtime 失效缓存，仅数据变更时重新读盘）"""
+        with self._lock:
+            if self._lof_data is not None and self._is_cache_valid():
+                return self._lof_data
+
+            project_root = get_project_root()
+            data_dir_path = os.path.join(project_root, self.data_dir)
+
+            csv_files = [f for f in os.listdir(data_dir_path)
+                         if f.startswith('lof_') and f.endswith('.csv')]
+            lof_data = {}
+            for file in csv_files:
+                code = file.replace('lof_', '').replace('.csv', '')
+                file_path = os.path.join(data_dir_path, file)
+                try:
+                    df = pd.read_csv(file_path, dtype=str)
+                    df['price_dt'] = pd.to_datetime(df['price_dt'], errors='coerce')
+
+                    # 数值列统一转换
+                    numeric_cols = ['price', 'net_value', 'est_val', 'discount_rt', 'volume', 'amount', 'amount_incr']
+                    for col in numeric_cols:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+                    df["price_pct"] = df["price"].pct_change() * 100
+
+                    # 用估值回填缺失的溢价率
+                    if 'est_val' in df.columns and 'discount_rt' in df.columns:
+                        mask = df['discount_rt'].isna() & df['est_val'].notna() & df['est_val'] != 0
+                        df.loc[mask, 'discount_rt'] = ((df.loc[mask, 'price'] / df.loc[mask, 'est_val'] - 1) * 100).round(2)
+
+                    df = df.dropna(subset=['price_dt'])
+                    if not df.empty:
+                        lof_data[code] = df.sort_values('price_dt').reset_index(drop=True)
+                except Exception as e:
+                    print(f"加载 {code} 数据失败: {e}")
+
+            self._lof_data = lof_data
+            self._data_signature = self._get_data_signature()
+            self._signals_cache = {}  # 数据变更，清除评分缓存
+            return lof_data
 
     def load_purchase_info(self) -> Dict[str, dict]:
-        """加载基金申购信息"""
-        project_root = get_project_root()
-        cache_path = get_cache_path(project_root)
+        """加载基金申购信息（带缓存）"""
+        with self._lock:
+            if self._purchase_info is not None and self._is_cache_valid():
+                return self._purchase_info
 
-        if cache_path is None or not os.path.exists(cache_path):
-            return {}
+            project_root = get_project_root()
+            cache_path = get_cache_path(project_root)
 
-        try:
-            fund_purchase_df = pd.read_csv(cache_path, dtype={"基金代码": str})
-            fund_purchase_df.rename(columns={
-                "基金代码": "code",
-                "基金简称": "fund_name",
-                "基金类型": "fund_type",
-                "申购状态": "purchase_status",
-                "赎回状态": "redeem_status",
-                "日累计限定金额": "purchase_limit",
-                "手续费": "fee_pct"
-            }, inplace=True)
-            fund_purchase_df["code"] = fund_purchase_df["code"].astype(str)
-            cols = ["fund_name", "fund_type", "purchase_status",
-                    "redeem_status", "purchase_limit", "fee_pct"]
-            # 过滤掉 CSV 中不存在的列
-            cols = [c for c in cols if c in fund_purchase_df.columns]
-            return (
-                fund_purchase_df
-                .set_index("code")[cols]
-                .to_dict(orient="index")
-            )
-        except Exception as e:
-            print(f"加载申购信息失败: {e}")
-            return {}
+            if cache_path is None or not os.path.exists(cache_path):
+                self._purchase_info = {}
+                return self._purchase_info
+
+            try:
+                fund_purchase_df = pd.read_csv(cache_path, dtype={"基金代码": str})
+                fund_purchase_df.rename(columns={
+                    "基金代码": "code",
+                    "基金简称": "fund_name",
+                    "基金类型": "fund_type",
+                    "申购状态": "purchase_status",
+                    "赎回状态": "redeem_status",
+                    "日累计限定金额": "purchase_limit",
+                    "手续费": "fee_pct"
+                }, inplace=True)
+                fund_purchase_df["code"] = fund_purchase_df["code"].astype(str)
+                cols = ["fund_name", "fund_type", "purchase_status",
+                        "redeem_status", "purchase_limit", "fee_pct"]
+                # 过滤掉 CSV 中不存在的列
+                cols = [c for c in cols if c in fund_purchase_df.columns]
+                self._purchase_info = (
+                    fund_purchase_df
+                    .set_index("code")[cols]
+                    .to_dict(orient="index")
+                )
+                return self._purchase_info
+            except Exception as e:
+                print(f"加载申购信息失败: {e}")
+                self._purchase_info = {}
+                return self._purchase_info
 
     def premium_stats(self, df: pd.DataFrame, days: int) -> Dict[str, float]:
         d = df.tail(days)
@@ -609,7 +683,15 @@ class LOFArbitrageAnalyzer:
         }
 
     def get_all_signals(self, trade_commission: float = 0.020) -> List[Dict[str, Any]]:
-        """获取所有 LOF 的套利信号（无 Streamlit 缓存依赖）"""
+        """获取所有 LOF 的套利信号（带缓存，数据未变更时直接返回缓存的评分结果）"""
+        # 快速检查评分缓存
+        with self._lock:
+            if trade_commission in self._signals_cache:
+                cached_sig, cached_signals = self._signals_cache[trade_commission]
+                if cached_sig == self._data_signature:
+                    return copy.deepcopy(cached_signals)
+
+        # 缓存未命中，重新计算
         lof_data = self.load_all_data()
         purchase_info_map = self.load_purchase_info()
 
@@ -625,7 +707,13 @@ class LOFArbitrageAnalyzer:
             s["is_estimated"] = True  # 盘中估值，非确认净值
             signals.append(s)
 
-        return sorted(signals, key=lambda x: x["score"], reverse=True)
+        signals_sorted = sorted(signals, key=lambda x: x["score"], reverse=True)
+
+        # 存入缓存
+        with self._lock:
+            self._signals_cache[trade_commission] = (self._data_signature, copy.deepcopy(signals_sorted))
+
+        return signals_sorted
 
     def get_opportunities(self, min_score: int = 50, purchase_open: bool = False,
                           max_fee: float = 0.5, min_purchase_limit: float = 1000,
@@ -670,14 +758,46 @@ class LOFArbitrageAnalyzer:
 
         return filtered
 
-    def get_fund_detail(self, code: str,
-                         trade_commission: float = 0.020) -> Optional[Dict[str, Any]]:
-        """获取单个基金详情（API 友好接口）"""
-        lof_data = self.load_all_data()
-        if code not in lof_data:
+    def _load_single_fund(self, code: str) -> Optional[pd.DataFrame]:
+        """从磁盘加载单只基金数据（不依赖全量缓存，冷启动时使用）"""
+        project_root = get_project_root()
+        file_path = os.path.join(project_root, self.data_dir, f"lof_{code}.csv")
+        if not os.path.exists(file_path):
+            return None
+        try:
+            df = pd.read_csv(file_path, dtype=str)
+            df['price_dt'] = pd.to_datetime(df['price_dt'], errors='coerce')
+            numeric_cols = ['price', 'net_value', 'est_val', 'discount_rt', 'volume', 'amount', 'amount_incr']
+            for col in numeric_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+            df["price_pct"] = df["price"].pct_change() * 100
+            if 'est_val' in df.columns and 'discount_rt' in df.columns:
+                mask = df['discount_rt'].isna() & df['est_val'].notna() & df['est_val'] != 0
+                df.loc[mask, 'discount_rt'] = ((df.loc[mask, 'price'] / df.loc[mask, 'est_val'] - 1) * 100).round(2)
+            df = df.dropna(subset=['price_dt'])
+            if df.empty:
+                return None
+            return df.sort_values('price_dt').reset_index(drop=True)
+        except Exception as e:
+            print(f"加载 {code} 数据失败: {e}")
             return None
 
-        df = lof_data[code]
+    def _get_fund_data(self, code: str) -> Optional[pd.DataFrame]:
+        """获取单只基金数据：优先全量缓存，冷启动时仅加载单只"""
+        if self._lof_data is not None and self._is_cache_valid() and code in self._lof_data:
+            return self._lof_data[code]
+        return self._load_single_fund(code)
+
+    def get_fund_detail(self, code: str,
+                         trade_commission: float = 0.020) -> Optional[Dict[str, Any]]:
+        """获取单个基金详情（缓存命中时 O(1)，冷启动时仅读单文件）"""
+        df = self._get_fund_data(code)
+        if df is None:
+            return None
+
+        # 构造 mini dict 供 score_one_lof 使用
+        lof_data = {code: df}
         purchase_info_map = self.load_purchase_info()
         purchase_info = purchase_info_map.get(code, {})
         signal = self.score_one_lof(lof_data, code,
@@ -702,3 +822,108 @@ class LOFArbitrageAnalyzer:
 
         signal["history_summary"] = history_summary
         return signal
+
+    def get_fund_score_standalone(self, code: str,
+                                   trade_commission: float = 0.020) -> Optional[Dict[str, Any]]:
+        """单只基金评分（不加载全量数据，缓存命中时用缓存，否则仅读单文件）"""
+        df = self._get_fund_data(code)
+        if df is None:
+            return None
+
+        lof_data = {code: df}
+        purchase_info_map = self.load_purchase_info()
+        purchase_info = purchase_info_map.get(code, {})
+        signal = self.score_one_lof(lof_data, code,
+                                     purchase_info=purchase_info,
+                                     trade_commission=trade_commission)
+        signal["purchase_info"] = self._build_purchase_info(purchase_info)
+        signal["data_as_of"] = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+        signal["is_estimated"] = True
+        return signal
+
+    def save_signals_cache(self):
+        """将当前评分缓存写入磁盘 JSON（同步后调用，加速服务重启）"""
+        import json
+
+        if not self._signals_cache or self._data_signature is None:
+            return False
+
+        project_root = get_project_root()
+        cache_path = os.path.join(project_root, self.data_dir, "opportunities_cache.json")
+
+        try:
+            # 取默认 trade_commission 的评分结果
+            tc = 0.020
+            if tc not in self._signals_cache:
+                return False
+            _, signals = self._signals_cache[tc]
+
+            cache_data = {
+                "trade_commission": tc,
+                "data_signature": list(self._data_signature),
+                "computed_at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
+                "signal_count": len(signals),
+                "signals": signals
+            }
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(cache_data, f, ensure_ascii=False, default=_json_default)
+            return True
+        except Exception as e:
+            print(f"保存评分缓存失败: {e}")
+            return False
+
+    def load_signals_cache(self) -> bool:
+        """从磁盘 JSON 加载预计算的评分缓存（启动时调用，避免全量读盘）"""
+        import json
+
+        project_root = get_project_root()
+        cache_path = os.path.join(project_root, self.data_dir, "opportunities_cache.json")
+
+        if not os.path.exists(cache_path):
+            return False
+
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cache_data = json.load(f)
+
+            # 验证数据签名：签名一致说明数据未变更，缓存有效
+            stored_sig = tuple(cache_data.get("data_signature", []))
+            current_sig = self._get_data_signature()
+            if stored_sig != current_sig:
+                return False
+
+            tc = cache_data.get("trade_commission", 0.020)
+            signals = cache_data.get("signals", [])
+
+            with self._lock:
+                self._data_signature = current_sig
+                self._signals_cache[tc] = (current_sig, signals)
+                # 标记数据缓存为有效（但不填充 _lof_data，按需加载）
+                # _lof_data 保持 None，单只基金查询会触发单文件加载
+
+            return True
+        except Exception as e:
+            print(f"加载评分缓存失败: {e}")
+            return False
+
+
+# ==================== 模块级单例 ====================
+
+_analyzer_instance: Optional[LOFArbitrageAnalyzer] = None
+_analyzer_lock = threading.Lock()
+
+
+def get_analyzer() -> LOFArbitrageAnalyzer:
+    """获取全局唯一的 Analyzer 实例（单例模式，带内存缓存）"""
+    global _analyzer_instance
+    if _analyzer_instance is None:
+        with _analyzer_lock:
+            if _analyzer_instance is None:
+                _analyzer_instance = LOFArbitrageAnalyzer()
+    return _analyzer_instance
+
+
+def invalidate_analyzer_cache():
+    """清除全局 Analyzer 的缓存（数据同步完成后调用）"""
+    analyzer = get_analyzer()
+    analyzer.invalidate_cache()

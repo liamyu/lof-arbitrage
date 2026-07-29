@@ -9,7 +9,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 from typing import List
 from api.models import FundDetail, FundSignal, FundHistoryResponse, FundHistoryRecord
-from core.analyzer import LOFArbitrageAnalyzer, get_project_root
+from core.analyzer import get_analyzer, get_project_root
 
 router = APIRouter(prefix="/funds", tags=["funds"])
 
@@ -22,7 +22,7 @@ def get_fund_detail(
     """
     获取单个基金的详细信息
     """
-    analyzer = LOFArbitrageAnalyzer()
+    analyzer = get_analyzer()
     detail = analyzer.get_fund_detail(code, trade_commission=trade_commission)
 
     if detail is None:
@@ -37,33 +37,13 @@ def get_fund_score(
     trade_commission: float = Query(0.020, ge=0, le=1, description="交易佣金率（单边，默认 0.020%）")
 ):
     """
-    获取单个基金的评分
+    获取单个基金的评分（短路优化：不加载全量数据）
     """
-    analyzer = LOFArbitrageAnalyzer()
-    lof_data = analyzer.load_all_data()
-    purchase_info_map = analyzer.load_purchase_info()
+    analyzer = get_analyzer()
+    signal = analyzer.get_fund_score_standalone(code, trade_commission=trade_commission)
 
-    if code not in lof_data:
+    if signal is None:
         raise HTTPException(status_code=404, detail=f"基金 {code} 未找到")
-
-    purchase_info = purchase_info_map.get(code, {})
-    signal = analyzer.score_one_lof(lof_data, code,
-                                     purchase_info=purchase_info,
-                                     trade_commission=trade_commission)
-
-    # 补充申购信息
-    signal["purchase_info"] = {
-        "fund_name": purchase_info.get("fund_name"),
-        "fund_type": purchase_info.get("fund_type"),
-        "purchase_status": purchase_info.get("purchase_status"),
-        "redeem_status": purchase_info.get("redeem_status"),
-        "purchase_limit": purchase_info.get("purchase_limit"),
-        "fee_pct": purchase_info.get("fee_pct")
-    }
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-    signal["data_as_of"] = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
-    signal["is_estimated"] = True
 
     return signal
 

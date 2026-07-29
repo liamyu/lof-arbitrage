@@ -518,10 +518,19 @@
       ? 'http://localhost:8000/api/v1'
       : '/api/v1';
 
-    async function fetchJSON(path) {
-      const res = await fetch(`${API_BASE}${path}`);
-      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `HTTP ${res.status}`); }
-      return res.json();
+    async function fetchJSON(path, timeoutMs = 15000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(`${API_BASE}${path}`, { signal: controller.signal });
+        if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `HTTP ${res.status}`); }
+        return res.json();
+      } catch (e) {
+        if (e.name === 'AbortError') throw new Error('请求超时');
+        throw e;
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
 
     const api = {
@@ -605,16 +614,21 @@
         const minScore = ref(50), purchaseOpen = ref(false), tradeCommission = ref(0.020);
         const maxFee = ref(0.5), minLimit = ref(1000);
         const dataStatus = ref(null);
+        let _loadGen = 0, _debounceTimer = null;
         function netProfitClass(np) { if (np == null) return ''; if (np >= 3) return 'profit-up'; if (np > 0) return 'medium'; return 'profit-down'; }
-        async function load() { loading.value = true; error.value = ''; try {
+        async function load() {
+          const gen = ++_loadGen;
+          loading.value = true; error.value = ''; try {
           const params = { min_score: minScore.value, purchase_open: purchaseOpen.value, trade_commission: tradeCommission.value, limit: 50 };
           if (purchaseOpen.value) { params.max_fee = maxFee.value; params.min_purchase_limit = minLimit.value; }
           const [oppRes, statusRes] = await Promise.all([api.opportunities(params), api.dataStatus()]);
+          if (gen !== _loadGen) return;
           funds.value = oppRes.data || []; dataStatus.value = statusRes;
-        } catch (e) { error.value = e.message || '加载失败'; } finally { loading.value = false; }}
+        } catch (e) { if (gen !== _loadGen) return; error.value = e.message || '加载失败'; } finally { if (gen === _loadGen) loading.value = false; }}
+        function debouncedLoad() { clearTimeout(_debounceTimer); _debounceTimer = setTimeout(load, 300); }
         function goDetail(code) { router.push(`/fund/${code}?trade_commission=${tradeCommission.value}`); }
-        watch([minScore, purchaseOpen, tradeCommission], load);
-        watch([maxFee, minLimit], () => { if (purchaseOpen.value) load(); });
+        watch([minScore, purchaseOpen, tradeCommission], debouncedLoad);
+        watch([maxFee, minLimit], () => { if (purchaseOpen.value) debouncedLoad(); });
         onMounted(load);
         return { funds, loading, error, minScore, purchaseOpen, tradeCommission, maxFee, minLimit, dataStatus, load, goDetail, scoreClass, netProfitClass };
       }

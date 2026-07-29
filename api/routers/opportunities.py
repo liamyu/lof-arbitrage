@@ -5,7 +5,7 @@ GET /api/v1/opportunities
 from typing import Optional
 from fastapi import APIRouter, Query
 from api.models import OpportunityListResponse, FundSignal
-from core.analyzer import LOFArbitrageAnalyzer
+from core.analyzer import get_analyzer
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
@@ -24,7 +24,7 @@ def list_opportunities(
     获取套利机会列表，按评分降序排列
     支持硬性过滤：申购状态、手续费、限额、净利润
     """
-    analyzer = LOFArbitrageAnalyzer()
+    analyzer = get_analyzer()
     signals = analyzer.get_opportunities(
         min_score=min_score,
         purchase_open=purchase_open,

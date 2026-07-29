@@ -11,6 +11,7 @@ sys.path.insert(0, project_root)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from contextlib import asynccontextmanager
 
 from api.routers import funds, opportunities, meta
@@ -21,6 +22,12 @@ from core.scheduler import init_scheduler, shutdown_scheduler
 async def lifespan(app: FastAPI):
     """应用生命周期：启动时初始化定时任务，关闭时清理"""
     init_scheduler()
+    # 预热缓存：优先从预计算 JSON 加载（~50ms），失败则全量读盘（~1.5s）
+    from core.analyzer import get_analyzer
+    analyzer = get_analyzer()
+    if not analyzer.load_signals_cache():
+        analyzer.load_all_data()
+        analyzer.load_purchase_info()
     yield
     shutdown_scheduler()
 
@@ -33,6 +40,9 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+# Gzip 压缩（减少 ~300 只基金的 JSON 响应体积 60-70%）
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # CORS 配置（允许 H5 前端调用）
 app.add_middleware(
