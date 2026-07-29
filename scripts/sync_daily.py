@@ -20,6 +20,7 @@ from utils.trading_calendar import is_trading_day
 from core.data_sync import DataSyncCore
 from utils.data_manager import DataManager
 from fetch_fund_purchase import fetch_or_load_fund_purchase
+from discover_new_lof import discover_and_update
 
 # 配置日志
 logging.basicConfig(
@@ -68,6 +69,17 @@ def main():
         return
 
     logger.info(f"📈 {today} 是交易日，开始同步数据...")
+
+    # ===== 发现新上市 LOF & 清理退市 LOF =====
+    try:
+        logger.info("🔍 正在检查 LOF 清单变动...")
+        new_codes, delisted_codes = discover_and_update()
+        if new_codes:
+            logger.info(f"🆕 发现 {len(new_codes)} 个新 LOF，将在本次同步中拉取数据")
+        if delisted_codes:
+            logger.info(f"🗑 已清理 {len(delisted_codes)} 个退市 LOF")
+    except Exception as e:
+        logger.error(f"LOF 清单更新失败（不阻断主流程）: {e}")
 
     # ===== 同步基金申购赎回信息 =====
     try:
