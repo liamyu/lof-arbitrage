@@ -1,13 +1,15 @@
 # LOF 套利工具 - API 服务镜像
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
 WORKDIR /app
 
 # 安装编译依赖并清理缓存
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     gcc \
     g++ \
-    && rm -rf /var/lib/apt/lists/*
+    musl-dev \
+    linux-headers \
+    && rm -rf /var/cache/apk/*
 
 # 复制并安装 Python 依赖
 COPY requirements.txt .
